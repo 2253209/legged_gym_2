@@ -46,7 +46,7 @@ class ZqCfg(LeggedRobotCfg):
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.850]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.855]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': 0.0,
             'JOINT_Y2': 0.0,
@@ -109,20 +109,29 @@ class ZqCfg(LeggedRobotCfg):
 
         class scales(LeggedRobotCfg.rewards.scales):
             termination = -200.
-            tracking_ang_vel = 1.0
-            torques = -5.e-5
-            dof_acc = -2.e-7
-            lin_vel_z = -0.5
-            # feet_air_time = 5.
-            dof_pos_limits = -1.
-            no_fly = 1.25
-            dof_vel = -0.0
-            ang_vel_xy = -0.0
-            feet_contact_forces = -0.
-            target_joint_pos = 5.0
             tracking_lin_vel = 1.0
-            # feet_stumble = -1.0
+            tracking_ang_vel = 1.0
+            lin_vel_z = -0.5
+            ang_vel_xy = -0.5
+            orientation = -0.5
 
+            torques = -5.e-5
+            dof_vel = -0.
+            dof_acc = -2.e-7
+
+            base_height = -0.
+            feet_air_time = 0.
+            collision = -0.
+            dof_pos_limits = -1.
+
+            feet_stumble = -0.0
+            feet_contact_forces = -0.
+
+            action_rate = -0.01
+            stand_still = -0.
+            no_fly = 1.25
+            target_joint_pos = 1.0
+            body_feet_dist = -1.0
 
 class ZqCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):

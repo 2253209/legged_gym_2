@@ -40,12 +40,14 @@ from typing import Tuple, Dict
 from legged_gym.envs import LeggedRobot
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
 
+
 def get_euler_xyz_tensor(quat):
     r, p, w = get_euler_xyz(quat)
     # stack r, p, w in dim1
     euler_xyz = torch.stack((r, p, w), dim=1)
     euler_xyz[euler_xyz > np.pi] -= 2 * np.pi
     return euler_xyz
+
 
 class ZqRobot(LeggedRobot):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
@@ -92,7 +94,7 @@ class ZqRobot(LeggedRobot):
         else:
             self.root_states[env_ids] = self.base_init_state
             self.root_states[env_ids, :3] += self.env_origins[env_ids]
-            rpy = torch_rand_float(-0.3, 0.3, (len(env_ids), 3), device=self.device)
+            rpy = torch_rand_float(-0.2, 0.2, (len(env_ids), 3), device=self.device)
             for index, id in enumerate(env_ids):
                 self.root_states[id, 3:7] = quat_from_euler_xyz(rpy[index, 0], rpy[index, 1], rpy[index, 2])
         # base velocities
@@ -126,7 +128,22 @@ class ZqRobot(LeggedRobot):
         # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
         return torch.exp(-yaw_roll * 100) - 1.0 * torch.norm(joint_diff, dim=1)
 
-    def _reward_feet_stumble(self):
-        # Penalize feet hitting vertical surfaces
-        return torch.any(torch.norm(self.contact_forces[:, self.feet_indices, :2], dim=2) >\
-             5 *torch.abs(self.contact_forces[:, self.feet_indices, 2]), dim=1)
+    def _reward_body_feet_dist(self):
+        # Penalize body root xy diff feet xy
+        self.gym.clear_lines(self.viewer)
+
+        foot_pos = self.rigid_state[:, self.feet_indices, :2]
+        center_pos = torch.mean(foot_pos, dim=1)
+        body_pos = self.root_states[:, :2]
+        pos_dist = torch.norm(body_pos[:, :] - center_pos[:, :], dim=1)
+
+        sphere_geom_1 = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 0, 0))
+        sphere_geom_2 = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(0, 0, 1))
+        sphere_pose_1 = gymapi.Transform(gymapi.Vec3(body_pos[0, 0], body_pos[0, 1], 0.01), r=None)
+        sphere_pose_2 = gymapi.Transform(gymapi.Vec3(center_pos[0, 0], center_pos[0, 1], 0.01), r=None)
+        gymutil.draw_lines(sphere_geom_1, self.gym, self.viewer, self.envs[0], sphere_pose_1)
+        gymutil.draw_lines(sphere_geom_2, self.gym, self.viewer, self.envs[0], sphere_pose_2)
+
+        reward = torch.square(pos_dist * 10)
+        # print(f'dist={pos_dist[0]}')
+        return reward

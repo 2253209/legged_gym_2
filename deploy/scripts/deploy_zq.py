@@ -17,7 +17,7 @@ from deploy.utils.ankle_joint_converter import decouple, forward_kinematics
 from deploy.utils.logger import SimpleLogger
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
-
+from isaacgym import torch_utils
 
 class Deploy:
     def __init__(self, cfg, path):
@@ -27,14 +27,11 @@ class Deploy:
 
     def publish_action(self, action, kp, kd):
         command_for_robot = pd_targets_lcmt()
-        # command_for_robot.q_des = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=np.double)  #action[index]
-        # command_for_robot.qd_des = np.array([0.1, 1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1, 8.1, 9.1, 10.1, 11.1], dtype=np.double)  #np.zeros(12)
-        # command_for_robot.kp = np.array([0.2, 1.2, 2.2, 3.2, 4.2, 5.2, 6.2, 7.2, 8.2, 9.2, 10.2, 11.2], dtype=np.double)  #cfg.robot_config.kps[index]
-        # command_for_robot.kd = np.array([0.3, 1.3, 2.3, 3.3, 4.3, 5.3, 6.3, 7.3, 8.3, 9.3, 10.3, 11.3], dtype=np.double)  #cfg.robot_config.kds[index]
-        command_for_robot.q_des = action[self.cfg.env.dof_index]
+
+        command_for_robot.q_des = action
         command_for_robot.qd_des = np.zeros(self.cfg.env.num_actions)
-        command_for_robot.kp = kp[self.cfg.env.dof_index]
-        command_for_robot.kd = kd[self.cfg.env.dof_index]
+        command_for_robot.kp = kp
+        command_for_robot.kd = kd
 
         command_for_robot.tau_ff = np.zeros(self.cfg.env.num_actions)
         command_for_robot.se_contactState = np.zeros(4)
@@ -43,29 +40,6 @@ class Deploy:
 
         # 由lcm将神经网络输出的action传入c++ sdk
         self.lc.publish("robot_command", command_for_robot.encode())
-
-    @staticmethod
-    def quaternion_to_euler_array(quat):
-        # Ensure quaternion is in the correct format [x, y, z, w]
-        x, y, z, w = quat
-
-        # Roll (x-axis rotation)
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll_x = np.arctan2(t0, t1)
-
-        # Pitch (y-axis rotation)
-        t2 = +2.0 * (w * y - z * x)
-        t2 = np.clip(t2, -1.0, 1.0)
-        pitch_y = np.arcsin(t2)
-
-        # Yaw (z-axis rotation)
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw_z = np.arctan2(t3, t4)
-
-        # Returns roll, pitch, yaw in a NumPy array in radians
-        return np.array([roll_x, pitch_y, yaw_z])
 
     def get_obs(self, es):
         """
@@ -130,35 +104,29 @@ class Deploy:
                 dq = dq[-self.cfg.env.num_actions:]
 
                 obs = np.zeros([1, self.cfg.env.num_single_obs], dtype=np.float32)
-                eu_ang = self.quaternion_to_euler_array(quat)
-                eu_ang[eu_ang > math.pi] -= 2 * math.pi
+                roll_x, pitch_y, yaw_z = torch_utils.get_euler_xyz(quat)
+                eu_ang = np.array([roll_x, pitch_y, yaw_z])
+                # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
+                # self.base_euler_xyz,  # 3
+                # self.commands[:, :3] * self.commands_scale,  # 3
+                # self.dof_pos * self.obs_scales.dof_pos,  # 10
+                # self.dof_vel * self.obs_scales.dof_vel,  # 10
+                # self.actions  # 10
 
-                obs[0, 0] = math.sin(2 * math.pi * key_comm.timestep * self.cfg.env.dt / self.cfg.env.cycle_time)
-                obs[0, 1] = math.cos(2 * math.pi * key_comm.timestep * self.cfg.env.dt / self.cfg.env.cycle_time)
-                obs[0, 2] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel
-                obs[0, 3] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel
-                obs[0, 4] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel
-                obs[0, 5:15] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos    # [9]应该取负值
-                obs[0, 9] = -obs[0, 9]
-                obs[0, 15:25] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel    # [19]应该取负值
-                obs[0, 19] = -obs[0, 19]
-                obs[0, 25:35] = action[self.cfg.env.net_index]
-                obs[0, 35:38] = omega
-                obs[0, 38:41] = eu_ang
+                obs[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel,  # 3
+                obs[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat,  # 3
+                obs[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
+                obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
+                obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
+                obs[0, 9:19] = q * self.cfg.normalization.obs_scales.dof_pos  # 10
+                obs[0, 19:29] = dq * self.cfg.normalization.obs_scales.dof_vel   # 10
+                obs[0, 29:39] = action   # 10
 
                 obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
                 # 将obs写入文件，在桌面
                 sp_logger.save(obs, key_comm.timestep, frq)
 
-                hist_obs.append(obs)
-                hist_obs.popleft()
-
-                policy_input = np.zeros([1, self.cfg.env.num_observations], dtype=np.float32)
-                for i in range(self.cfg.env.frame_stack):
-                    policy_input[0, i * self.cfg.env.num_single_obs: (i + 1) * self.cfg.env.num_single_obs] = hist_obs[i][0, :]
-
-                # action_p = np.copy(q * 4)
                 action_q = action * self.cfg.env.action_scale
 
                 if key_comm.stepCalibrate:
@@ -255,9 +223,9 @@ class DeployCfg:
 
     class normalization:
         class obs_scales:
-            lin_vel = 2.
-            ang_vel = 1.
-            dof_pos = 1.
+            lin_vel = 2.0
+            ang_vel = 0.25
+            dof_pos = 1.0
             dof_vel = 0.05
             quat = 1.
             height_measurements = 5.0
