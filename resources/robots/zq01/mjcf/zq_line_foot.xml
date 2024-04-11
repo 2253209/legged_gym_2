@@ -1,0 +1,155 @@
+<mujoco model="zq01">
+  <compiler angle="radian" meshdir="../meshes/" eulerseq="xyz"/>
+  <option timestep='0.002' iterations='50' solver='PGS' gravity='0 0 -9.81'>
+    <flag sensornoise="enable" frictionloss="enable"/>
+  </option>
+  <size njmax="500" nconmax="100" />
+  <visual>
+    <quality shadowsize='4096'/>
+    <map znear='0.05'/>
+  </visual>
+  <default>
+    <joint limited='true'/>
+    <motor ctrllimited='true'/>
+    <geom  condim='4' contype="1" conaffinity="15" solref='0.001 2' friction='1.0 0.2 0.2'/>
+    <equality solref='0.001 2'/>
+    <default class='visualgeom'>
+      <geom material='visual' condim='1' contype='0' conaffinity='0'/>
+    </default>
+    <default class='collisiongeom'>
+      <geom material='visual2' condim='4' contype="1" conaffinity="15" solref='0.001 2' friction='1.0 0.2 0.2'/>
+    </default>
+  </default>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
+    <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2"
+        width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
+    <texture name="texplane2" type="2d" builtin="checker" rgb1="1 0.3137 0.1843" rgb2="0.0 0.30196 0.38039"
+        width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
+    <material name="matplane" reflectance="0." texture="texplane" texrepeat="1 1" texuniform="true"/>
+    <material name="matplane2" reflectance="0.1" texture="texplane2" texrepeat="1 1" texuniform="true"/>
+
+    <material name='obstacle'  rgba='0.9 0.6 0.2 1'/>
+    <material name='visual'  rgba='0.7 0.7 0.9 1'/>
+    <material name='visual2'  rgba='0.9 0.7 0.7 1'/>
+
+    <mesh name="base" file="base.STL"/>
+    <mesh name="Z1" file="Z1.STL"/>
+    <mesh name="Z2" file="Z2.STL"/>
+    <mesh name="Z3" file="Z3.STL"/>
+    <mesh name="Z4" file="Z4.STL"/>
+    <mesh name="Z5" file="Z5.STL"/>
+    <mesh name="Z6" file="Z6.STL"/>
+    <mesh name="Y1" file="Y1.STL"/>
+    <mesh name="Y2" file="Y2.STL"/>
+    <mesh name="Y3" file="Y3.STL"/>
+    <mesh name="Y4" file="Y4.STL"/>
+    <mesh name="Y5" file="Y5.STL"/>
+    <mesh name="Y6" file="Y6.STL"/>
+    <hfield name='hf0' nrow='200' ncol='200' size="10 5 0.2 .1"/>
+  </asset>
+  <worldbody>
+    <light directional="true" diffuse=".4 .4 .4" specular="0.1 0.1 0.1" pos="0 0 5.0" dir="0 0 -1" castshadow="false"/>
+    <light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1"/>
+    <geom name="ground" type="plane" size="0 0 1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1" conaffinity="15"/>
+ 
+    <body name="base" pos="0.0 0.0 0.848">
+      <inertial pos="-0.02535033 0.0 0.13619966" euler="0 0 0" mass="10.0" diaginertia="0.339706 0.313980 0.132461" />
+      <geom type="mesh" mesh="base" group="1" class="visualgeom"/>
+      <geom type="sphere" pos="0.01 0 0.15" size="0.25" group="2" class="collisiongeom"/>
+      <freejoint name="root"/>
+      <site name='imu' size='0.01' pos='0.0 0 0.0'/>
+
+
+  	    <body name="Y1" pos="0.03923 -0.075 0.003">
+	      <inertial pos="0.0006345 -0.000356516 -0.00127834" euler="0 0 0" mass="1.528" diaginertia="0.00326661 0.00234181 0.00184271"/>
+	      <joint name="JOINT_Y1" pos="0 0 0" axis="1 0 0" limited="true" range="-0.523 0.523"/>
+	      <geom type="mesh" mesh="Y1" group="1" class="visualgeom" />
+          <geom size="0.025 0.05" euler="0 1.5708 0" type="capsule" group="2" class="visualgeom"/>
+	      <body name="Y2">
+	        <inertial pos="-0.000248181 -0.00203672 -0.120063" euler="0 0 0" mass="1.8" diaginertia="0.00442548 0.0032523 0.00236817"/>
+	        <joint name="JOINT_Y2" pos="0 0 0" axis="0 0 1" limited="true" range="-0.3 0.3"/>
+	        <geom type="mesh" mesh="Y2" group="1" class="visualgeom" />
+            <geom size="0.025 0.02" pos="0 0 -0.05" type="capsule" group="2" class="visualgeom"/>
+	        <body name="Y3" pos="0 0 -0.129">
+	          <inertial pos="-0.00178082 -0.000759898 -0.143454" euler="0 0 0" mass="3.941" diaginertia="0.0377724 0.0340818 0.0103262"/>
+	          <joint name="JOINT_Y3" pos="0 0 0" axis="0 -1 0" limited="true" range="-1.204 1.204"/>
+	          <geom type="mesh" mesh="Y3" group="1" class="visualgeom" />
+                 <geom size="0.05 0.09" pos="0 0 -0.12" type="capsule" group="2" class="collisiongeom"/>
+	          <body name="Y4" pos="0 -0.00029 -0.3">
+	            <inertial pos="-0.00870412 0.000249222 -0.175914" euler="0 0 0" mass="3.25252" diaginertia="0.0426071 0.0408423 0.00490166"/>
+	            <joint name="JOINT_Y4" pos="0 0 0" axis="0 -1 0" limited="true" range="-2.268 0"/>
+	            <geom type="mesh" mesh="Y4" group="1" class="visualgeom" />
+                   <geom size="0.025 0.125" pos="0 0 -0.2" type="capsule" group="2" class="collisiongeom"/>
+	            <geom type="mesh" mesh="Y5" group="1" class="visualgeom" />
+                   <geom size="0.025 0.01" pos="0 0 -0.37" type="capsule" group="2" class="visualgeom"/>
+	            <body name="Y6_foot" pos="0 0 -0.37">
+	              <inertial pos="0.0274653 -0.00180832 -0.0348838" euler="0 0 0" mass="1.08451" diaginertia="0.00565074 0.00533615 0.000960103"/>
+	              <joint name="JOINT_Y5" pos="0 0 0" axis="0 -1 0" limited="true" range="-0.6 0.6"/>
+	              <geom type="mesh" mesh="Y6" group="1" class="visualgeom" />
+                     <geom size="0.04 0.08" pos="0.02 0 -0.015" euler="0 1.5708 0" type="capsule" group="2" class="collisiongeom"/>
+	            </body>
+	          </body>
+	        </body>
+	      </body>
+	    </body>
+	    <body name="Z1" pos="0.03923 0.075 0.003">
+	      <inertial pos="0.0006345 -0.000356516 -0.00127834" euler="0 0 0" mass="1.528" diaginertia="0.00326661 0.00234181 0.00184271"/>
+	      <joint name="JOINT_Z1" pos="0 0 0" axis="1 0 0" limited="true" range="-0.523 0.523"/>
+          <geom type="mesh" mesh="Z1" group="1" class="visualgeom" />
+	      <geom size="0.025 0.05" euler="0 1.5708 0" type="capsule" group="2" class="visualgeom" />
+	      <body name="Z2">
+	        <inertial pos="0.000248181 0.00203672 -0.120063" euler="0 0 0" mass="1.805" diaginertia="0.00442548 0.0032523 0.00236817"/>
+	        <joint name="JOINT_Z2" pos="0 0 0" axis="0 0 1" limited="true" range="-0.3 0.3"/>
+	        <geom type="mesh" mesh="Z2" group="1" class="visualgeom" />
+	        <geom size="0.025 0.02" pos="0 0 -0.05" type="capsule" group="2" class="visualgeom"/>
+	        <body name="Z3" pos="0 0 -0.129">
+	          <inertial pos="-0.00178082 0.000759898 -0.143454" euler="0 0 0" mass="3.941" diaginertia="0.0377724 0.0340818 0.0103262"/>
+	          <joint name="JOINT_Z3" pos="0 0 0" axis="0 -1 0" limited="true" range="-1.204 1.204"/>
+	          <geom type="mesh" mesh="Z3" group="1" class="visualgeom" />
+              <geom size="0.05 0.09" pos="0 0 -0.12" type="capsule" group="2" class="collisiongeom"/>
+	          <body name="Z4" pos="0 0.00029 -0.3">
+	            <inertial pos="-0.00870412 -0.000263374 -0.175914" euler="0 0 0" mass="3.25252" diaginertia="0.0426071 0.0408423 0.00490165"/>
+	            <joint name="JOINT_Z4" pos="0 0 0" axis="0 -1 0" limited="true" range="-2.268 0"/>
+	            <geom size="0.025 0.125" pos="0 0 -0.2" type="capsule" group="2" class="collisiongeom"/>
+	            <geom type="mesh" mesh="Z4" group="1" class="visualgeom" />
+                <geom size="0.025 0.01" pos="0 -0.00029 -0.37" type="capsule" group="2" class="visualgeom"/>
+	            <geom type="mesh" mesh="Z5" group="1" class="visualgeom" />
+                  <body name="Z6_foot" pos="0 -0.00029 -0.37">
+	              <inertial pos="0.0274653 0.00180832 -0.0348838" euler="0 0 0" mass="1.08451" diaginertia="0.00565074 0.00533615 0.000960103"/>
+	              <joint name="JOINT_Z5" pos="0 0 0" axis="0 -1 0" limited="true" range="-0.6 0.6"/>
+	              <geom type="mesh" mesh="Z6" group="1" class="visualgeom" />
+                     <geom size="0.04 0.08" pos="0.02 0 -0.015" euler="0 1.5708 0" type="capsule" group="2" class="collisiongeom"/>
+	            </body>
+	          </body>
+	        </body>
+	      </body>
+	    </body>
+
+      </body>
+  </worldbody>
+  <actuator>
+      <motor name="JOINT_Y1" joint="JOINT_Y1" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Y2" joint="JOINT_Y2" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Y3" joint="JOINT_Y3" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Y4" joint="JOINT_Y4" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Y5" joint="JOINT_Y5" gear="1" ctrllimited="true" ctrlrange="-50 50"/>
+<!--    <motor name="JOINT_Y6" joint="JOINT_Y6" gear="1" ctrllimited="true" ctrlrange="-50 50"/>-->
+    <motor name="JOINT_Z1" joint="JOINT_Z1" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Z2" joint="JOINT_Z2" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Z3" joint="JOINT_Z3" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Z4" joint="JOINT_Z4" gear="1" ctrllimited="true" ctrlrange="-200 200"/>
+    <motor name="JOINT_Z5" joint="JOINT_Z5" gear="1" ctrllimited="true" ctrlrange="-50 50"/>
+<!--    <motor name="JOINT_Z6" joint="JOINT_Z6" gear="1" ctrllimited="true" ctrlrange="-50 50"/>-->
+
+  </actuator>
+  <sensor>
+      <framequat     name='orientation' objtype='site' noise='0.001' objname='imu'/>
+      <framepos     name='position' objtype='site' noise='0.001' objname='imu'/>
+      <gyro          name='angular-velocity'    site='imu' noise='0.005' cutoff='34.9'/>
+      <velocimeter   name='linear-velocity'     site='imu' noise='0.001' cutoff='30'/>
+      <accelerometer name='linear-acceleration' site='imu' noise='0.005' cutoff='157'/>
+      <magnetometer  name='magnetometer'        site='imu'/>
+  </sensor>
+</mujoco>
