@@ -50,26 +50,26 @@ class ZqCfg(LeggedRobotCfg):
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.0,
             'JOINT_Y2': 0.0,
-            'JOINT_Y3': -0.1,
-            'JOINT_Y4': -0.05,
-            'JOINT_Y5': 0.1,
+            'JOINT_Y3': 0.1,
+            'JOINT_Y4': -0.15,
+            'JOINT_Y5': 0.15,
             # 'toe_joint_left': -1.57,
 
             'JOINT_Z1': 0.0,
             'JOINT_Z2': 0.0,
-            'JOINT_Z3': -0.1,
-            'JOINT_Z4': -0.05,
-            'JOINT_Z5': 0.1,
+            'JOINT_Z3': 0.1,
+            'JOINT_Z4': -0.15,
+            'JOINT_Z5': 0.15,
             # 'toe_joint_right': -1.57
         }
-        target_joint_angles = [-0.0, 0.0, 0.1, -0.15, 0.1,
-                               0.0, 0.0, 0.1, -0.15, 0.1]
+        target_joint_angles = [-0.0, 0.0, 0.1, -0.15, 0.15,
+                               0.0, 0.0, 0.1, -0.15, 0.15]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
         stiffness = {'1': 200.0, '2': 200.0, '3': 200.0, '4': 200.0, '5': 100.0
                      }  # [N*m/rad]
-        damping = {'1': 5.0, '2': 5.0, '3': 5.0, '4': 5.0, '5': 2.0,
+        damping = {'1': 10.0, '2': 10.0, '3': 10.0, '4': 10.0, '5': 5.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.1
