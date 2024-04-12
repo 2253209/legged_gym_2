@@ -55,7 +55,10 @@ class ZqRobot(LeggedRobot):
         self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
         for i in range(self.num_dofs):
             self.target_joint_angles[i] = self.cfg.init_state.target_joint_angles[i]
+        self.target_joint_angles = self.target_joint_angles.unsqueeze(0)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
+        self.init_position = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
+        self.body_pos = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
 
     def compute_observations(self):
         """ Computes observations
@@ -94,9 +97,12 @@ class ZqRobot(LeggedRobot):
         else:
             self.root_states[env_ids] = self.base_init_state
             self.root_states[env_ids, :3] += self.env_origins[env_ids]
-            rpy = torch_rand_float(-0.1, 0.1, (len(env_ids), 3), device=self.device)
-            for index, id in enumerate(env_ids):
-                self.root_states[id, 3:7] = quat_from_euler_xyz(rpy[index, 0], rpy[index, 1], rpy[index, 2])
+            # rpy = torch_rand_float(-0.1, 0.1, (len(env_ids), 3), device=self.device)
+            # for index, env_id in enumerate(env_ids):
+            #     self.root_states[env_id, 3:7] = quat_from_euler_xyz(rpy[index, 0], rpy[index, 1], rpy[index, 2])
+            #     self.init_position[env_id, 0:3] = self.root_states[env_id, 0:3]
+            #     self.init_position[env_id, 2] -= 0.1
+
         # base velocities
         # self.root_states[env_ids, 7:13] = torch_rand_float(-0.05, 0.05, (len(env_ids), 6), device=self.device) # [7:10]: lin vel, [10:13]: ang vel
         if self.cfg.asset.fix_base_link:
@@ -107,11 +113,15 @@ class ZqRobot(LeggedRobot):
                                                      gymtorch.unwrap_tensor(self.root_states),
                                                      gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
+    # def step(self, actions):
+    #     actions[:, :] += self.target_joint_angles[:]
+    #     return super().step(actions)
+
     # ------------------------ rewards --------------------
 
     def _reward_no_fly(self):
-        contacts = self.contact_forces[:, self.feet_indices, 2] > 0.1
-        single_contact = torch.sum(1. * contacts, dim=1) == 1
+        contacts = self.contact_forces[:, self.feet_indices, 2] > 1.1
+        single_contact = torch.sum(1. * contacts, dim=1) == 2
         return 1. * single_contact
 
     def _reward_target_joint_pos(self):
@@ -132,15 +142,20 @@ class ZqRobot(LeggedRobot):
         # Penalize body root xy diff feet xy
         self.gym.clear_lines(self.viewer)
 
-        foot_pos = self.rigid_state[:, self.feet_indices, :2]
-        center_pos = torch.mean(foot_pos, dim=1)
-        body_pos = self.root_states[:, :2]
-        pos_dist = torch.norm(body_pos[:, :] - center_pos[:, :], dim=1)
+        # foot_pos = self.rigid_state[:, self.feet_indices, :3]
+        # center_pos = torch.mean(foot_pos, dim=1)
+        self.body_pos[:, :3] = self.root_states[:, :3]
+        # self.body_pos[:, :3] = self.init_position[:, :3]
+        # self.body_pos[:, 2] -= 0.75
+
+        pos_dist = torch.norm(self.body_pos[:, :] - self.init_position[:, :], dim=1)
 
         sphere_geom_1 = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 0, 0))
         sphere_geom_2 = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(0, 0, 1))
-        sphere_pose_1 = gymapi.Transform(gymapi.Vec3(body_pos[0, 0], body_pos[0, 1], 0.01), r=None)
-        sphere_pose_2 = gymapi.Transform(gymapi.Vec3(center_pos[0, 0], center_pos[0, 1], 0.01), r=None)
+        sphere_pose_1 = gymapi.Transform(gymapi.Vec3(self.body_pos[0, 0], self.body_pos[0, 1], self.body_pos[0, 2] - 0.7), r=None)
+        sphere_pose_2 = gymapi.Transform(gymapi.Vec3(self.init_position[0, 0], self.init_position[0, 1], self.init_position[0, 2] - 0.7), r=None)
+        # sphere_pose_2 = gymapi.Transform(gymapi.Vec3(center_pos[0, 0], center_pos[0, 1], center_pos[0, 2]), r=None)
+
         gymutil.draw_lines(sphere_geom_1, self.gym, self.viewer, self.envs[0], sphere_pose_1)
         gymutil.draw_lines(sphere_geom_2, self.gym, self.viewer, self.envs[0], sphere_pose_2)
 

@@ -260,8 +260,8 @@ class DeployCfg:
         num_net = 10
 
         net_index = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10]
-        default_dof_pos = np.array([0., 0., -0.1, 0., 0.1, -0.1,
-                                           0., 0., -0.1, 0., -0.1, 0.1], dtype=np.float32)
+        default_dof_pos = np.array([0., 0., 0.1, -0.15, 0.1, -0.1,
+                                    0., 0., 0.1, -0.15, -0.1, 0.1], dtype=np.float32)
         # default_dof_pos = [0., 0., 0., 0., 0., 0.,
         #                    0., 0., 0., 0., 0., 0.]
 

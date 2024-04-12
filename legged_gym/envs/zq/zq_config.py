@@ -48,31 +48,31 @@ class ZqCfg(LeggedRobotCfg):
     class init_state(LeggedRobotCfg.init_state):
         pos = [0.0, 0.0, 0.855]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
-            'JOINT_Y1': 0.0,
+            'JOINT_Y1': -0.0,
             'JOINT_Y2': 0.0,
-            'JOINT_Y3': -0.2,
-            'JOINT_Y4': 0.0,
+            'JOINT_Y3': -0.1,
+            'JOINT_Y4': -0.05,
             'JOINT_Y5': 0.1,
             # 'toe_joint_left': -1.57,
 
             'JOINT_Z1': 0.0,
             'JOINT_Z2': 0.0,
-            'JOINT_Z3': -0.2,
-            'JOINT_Z4': 0.0,
+            'JOINT_Z3': -0.1,
+            'JOINT_Z4': -0.05,
             'JOINT_Z5': 0.1,
             # 'toe_joint_right': -1.57
         }
-        target_joint_angles = [-0.05, -0.1, 0.2, -0.45, 0.25,
-                               0.05, 0.1, 0.2, -0.45, 0.25]
+        target_joint_angles = [-0.0, 0.0, 0.1, -0.15, 0.1,
+                               0.0, 0.0, 0.1, -0.15, 0.1]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
-        stiffness = {'1': 200.0, '2': 200.0, '3': 200.0, '4': 200.0, '5': 50.0
+        stiffness = {'1': 200.0, '2': 200.0, '3': 200.0, '4': 200.0, '5': 100.0
                      }  # [N*m/rad]
-        damping = {'1': 5.0, '2': 5.0, '3': 5.0, '4': 5.0, '5': 0.0,
+        damping = {'1': 5.0, '2': 5.0, '3': 5.0, '4': 5.0, '5': 2.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.25
+        action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 5
 
@@ -86,9 +86,13 @@ class ZqCfg(LeggedRobotCfg):
 
     class commands(LeggedRobotCfg.commands):
         class ranges(LeggedRobotCfg.commands.ranges):
+            # lin_vel_x = [-0.3, 1.0]  # min max [m/s]
+            # lin_vel_y = [-0.3, 0.3]   # min max [m/s]
+            # ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
+            # heading = [-0.3, 0.3]
             lin_vel_x = [-0.0, 0.0]  # min max [m/s]
-            lin_vel_y = [-0.0, 0.0]   # min max [m/s]
-            ang_vel_yaw = [-0.0, 0.0]    # min max [rad/s]
+            lin_vel_y = [-0.0, 0.0]  # min max [m/s]
+            ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
             heading = [-0.0, 0.0]
 
     class asset(LeggedRobotCfg.asset):
@@ -100,7 +104,7 @@ class ZqCfg(LeggedRobotCfg):
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        randomize_friction = True
+        randomize_friction = False
         friction_range = [0.8, 1.2]
         randomize_base_mass = False
         added_mass_range = [-5., 5.]
@@ -114,42 +118,43 @@ class ZqCfg(LeggedRobotCfg):
         soft_torque_limit = 0.9
         max_contact_force = 300.
         only_positive_rewards = False
-
+        base_height_target = 0.8
         class scales(LeggedRobotCfg.rewards.scales):
-            # termination = -200.
-            # tracking_ang_vel = 1.0
-            # torques = -5.e-6
-            # dof_acc = -2.e-7
-            # lin_vel_z = -0.5
-            # feet_air_time = 5.
-            # dof_pos_limits = -1.
-            # no_fly = 0.25
-            # dof_vel = -0.0
-            # ang_vel_xy = -0.0
-            # feet_contact_forces = -0.
-            termination = -200.
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 1.0
-            lin_vel_z = -0.5
-            ang_vel_xy = -0.5
-            orientation = -0.5
-
-            torques = -5.e-5
-            dof_vel = -0.
+            termination = -100.
+            tracking_ang_vel = 0.0
+            torques = -5.e-6
             dof_acc = -2.e-7
-
-            base_height = -0.
+            lin_vel_z = -0.5
             feet_air_time = 0.
-            collision = -0.
             dof_pos_limits = -1.
-
-            feet_stumble = -0.0
+            no_fly = 10.25
+            dof_vel = -0.0
+            ang_vel_xy = -0.0
             feet_contact_forces = -0.
-
-            action_rate = -0.01
-            stand_still = -0.
-            no_fly = 1.25
-            target_joint_pos = 1.0
+            base_height = -100.0
+            # termination = -200.
+            # tracking_lin_vel = 1.0
+            # tracking_ang_vel = 1.0
+            # lin_vel_z = -0.5
+            # ang_vel_xy = -0.0
+            orientation = -10.0
+            #
+            # torques = -5.e-5
+            # dof_vel = -0.01
+            # dof_acc = -2.e-7
+            #
+            # base_height = -0.1
+            # feet_air_time = 0.
+            # collision = -0.
+            # dof_pos_limits = -1.
+            #
+            # feet_stumble = -0.0
+            # feet_contact_forces = -0.
+            #
+            # action_rate = -0.01
+            # stand_still = -0.
+            # no_fly = 1.25
+            # target_joint_pos = 0.1
             # body_feet_dist = -1.0
 
 
