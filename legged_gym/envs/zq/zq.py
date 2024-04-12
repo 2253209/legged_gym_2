@@ -94,7 +94,7 @@ class ZqRobot(LeggedRobot):
         else:
             self.root_states[env_ids] = self.base_init_state
             self.root_states[env_ids, :3] += self.env_origins[env_ids]
-            rpy = torch_rand_float(-0.2, 0.2, (len(env_ids), 3), device=self.device)
+            rpy = torch_rand_float(-0.1, 0.1, (len(env_ids), 3), device=self.device)
             for index, id in enumerate(env_ids):
                 self.root_states[id, 3:7] = quat_from_euler_xyz(rpy[index, 0], rpy[index, 1], rpy[index, 2])
         # base velocities

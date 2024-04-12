@@ -99,6 +99,14 @@ class ZqCfg(LeggedRobotCfg):
         flip_visual_attachments = False
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
+    class domain_rand(LeggedRobotCfg.domain_rand):
+        randomize_friction = True
+        friction_range = [0.8, 1.2]
+        randomize_base_mass = False
+        added_mass_range = [-5., 5.]
+        push_robots = False
+        push_interval_s = 15
+        max_push_vel_xy = 1.
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.95
@@ -108,6 +116,17 @@ class ZqCfg(LeggedRobotCfg):
         only_positive_rewards = False
 
         class scales(LeggedRobotCfg.rewards.scales):
+            # termination = -200.
+            # tracking_ang_vel = 1.0
+            # torques = -5.e-6
+            # dof_acc = -2.e-7
+            # lin_vel_z = -0.5
+            # feet_air_time = 5.
+            # dof_pos_limits = -1.
+            # no_fly = 0.25
+            # dof_vel = -0.0
+            # ang_vel_xy = -0.0
+            # feet_contact_forces = -0.
             termination = -200.
             tracking_lin_vel = 1.0
             tracking_ang_vel = 1.0
@@ -133,10 +152,14 @@ class ZqCfg(LeggedRobotCfg):
             target_joint_pos = 1.0
             # body_feet_dist = -1.0
 
+
+
+
 class ZqCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
         experiment_name = 'zq01'
+        max_iterations = 3000
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01
