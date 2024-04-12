@@ -6,6 +6,7 @@
 import math
 import numpy as np
 from collections import deque
+from isaacgym import torch_utils
 import torch
 import time
 import lcm
@@ -17,7 +18,32 @@ from deploy.utils.ankle_joint_converter import decouple, forward_kinematics
 from deploy.utils.logger import SimpleLogger
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
-from isaacgym import torch_utils
+
+
+def quaternion_to_euler_array(quat):
+    # Ensure quaternion is in the correct format [x, y, z, w]
+    x, y, z, w = quat
+
+    # Roll (x-axis rotation)
+    t0 = +2.0 * (w * x + y * z)
+    t1 = +1.0 - 2.0 * (x * x + y * y)
+    roll_x = np.arctan2(t0, t1)
+
+    # Pitch (y-axis rotation)
+    t2 = +2.0 * (w * y - z * x)
+    t2 = np.clip(t2, -1.0, 1.0)
+    pitch_y = np.arcsin(t2)
+
+    # Yaw (z-axis rotation)
+    t3 = +2.0 * (w * z + x * y)
+    t4 = +1.0 - 2.0 * (y * y + z * z)
+    yaw_z = np.arctan2(t3, t4)
+
+    # Returns roll, pitch, yaw in a NumPy array in radians
+    eu_ang = np.array([roll_x, pitch_y, yaw_z])
+    eu_ang[eu_ang > math.pi] -= 2 * math.pi
+    return eu_ang
+
 
 class Deploy:
     def __init__(self, cfg, path):
@@ -45,14 +71,53 @@ class Deploy:
         """
         Extracts an observation from the mujoco data structure
         """
-        q = es.joint_pos[self.cfg.env.dof_index].astype(np.double)
-        dq = es.joint_vel[self.cfg.env.dof_index].astype(np.double)
+        q = es.joint_pos.astype(np.double)
+        q[10] = -q[10]
+        q[11] = -q[11]
+        dq = es.joint_vel.astype(np.double)
+        dq[10] = -dq[10]
+        dq[11] = -dq[11]
         quat = es.quat[[1, 2, 3, 0]].astype(np.double)
         # r = R.from_quat(quat)
         # v = r.apply(data.qvel[:3], inverse=True).astype(np.double)  # In the base frame
         omega = es.omegaBody[[0, 1, 2]].astype(np.double)
         # gvec = r.apply(np.array([0., 0., -1.]), inverse=True).astype(np.double)
-        return q, dq, quat, omega
+        eu_ang = quaternion_to_euler_array(quat)
+
+        return q, dq, eu_ang, omega
+
+    def combine_obs(self, obs, omega, eu_ang, q, dq, action):
+        # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
+        # self.base_euler_xyz,  # 3
+        # self.commands[:, :3] * self.commands_scale,  # 3
+        # self.dof_pos * self.obs_scales.dof_pos,  # 10
+        # self.dof_vel * self.obs_scales.dof_vel,  # 10
+        # self.actions  # 10
+
+        obs[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
+        obs[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
+        obs[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
+        obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
+        obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
+        obs[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
+        obs[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        obs[0, 29:39] = action[self.cfg.env.net_index]  # 10
+
+        obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
+
+    def combine_total_obs(self, total_obs, omega, eu_ang, q, dq, action):
+        total_obs[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
+        total_obs[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
+        total_obs[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
+        total_obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
+        total_obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
+        total_obs[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
+        total_obs[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        total_obs[0, 29:39] = action[self.cfg.env.net_index]  # 10
+        total_obs[0, 39:51] = q[:]
+        total_obs[0, 51:63] = dq[:]
+        total_obs[0, 63:75] = action[:]
+
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
         """
@@ -61,19 +126,20 @@ class Deploy:
 
         return (target_q - q) * kp + (target_dq - dq) * kd
 
+
     def run_robot(self, policy):
 
         target_q = np.zeros(self.cfg.env.num_actions, dtype=np.double)
         action = np.zeros(self.cfg.env.num_actions, dtype=np.double)
-        action_net = np.zeros(self.cfg.env.num_actions, dtype=np.double)
+        action[:] = self.cfg.env.default_dof_pos[:]
+        action_last = np.zeros_like(action)
+
         kp = np.zeros(self.cfg.env.num_actions)
         kd = np.zeros(self.cfg.env.num_actions)
 
-        hist_obs = deque()
-        for _ in range(self.cfg.env.frame_stack):
-            hist_obs.append(np.zeros([1, self.cfg.env.num_single_obs], dtype=np.double))
+        obs = np.zeros((1, self.cfg.env.num_single_obs), dtype=np.float32)
+        total_obs = np.zeros((1, 75), dtype=np.float32)  # 39+36
 
-        tau = np.zeros(self.cfg.env.num_actions, dtype=np.double)
         current_time = time.time()
 
         # start thread receiving robot state
@@ -82,6 +148,7 @@ class Deploy:
 
         key_comm = KeyCommand()
         key_comm.start()
+        count_max_merge = 100
 
         act_gen = ActionGenerator(self.cfg)
 
@@ -98,69 +165,55 @@ class Deploy:
                 current_time = time.time()
 
                 # Obtain an observation
-                q, dq, quat, omega = self.get_obs(es)
-                q = q[-self.cfg.env.num_actions:]
-                # q = target_q[-12:]
-                dq = dq[-self.cfg.env.num_actions:]
+                q, dq, eu_ang, omega = self.get_obs(es)
 
-                obs = np.zeros([1, self.cfg.env.num_single_obs], dtype=np.float32)
-                roll_x, pitch_y, yaw_z = torch_utils.get_euler_xyz(quat)
-                eu_ang = np.array([roll_x, pitch_y, yaw_z])
-                # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
-                # self.base_euler_xyz,  # 3
-                # self.commands[:, :3] * self.commands_scale,  # 3
-                # self.dof_pos * self.obs_scales.dof_pos,  # 10
-                # self.dof_vel * self.obs_scales.dof_vel,  # 10
-                # self.actions  # 10
-
-                obs[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel,  # 3
-                obs[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat,  # 3
-                obs[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
-                obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
-                obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
-                obs[0, 9:19] = q * self.cfg.normalization.obs_scales.dof_pos  # 10
-                obs[0, 19:29] = dq * self.cfg.normalization.obs_scales.dof_vel   # 10
-                obs[0, 29:39] = action   # 10
-
-                obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
+                self.combine_obs(obs, omega, eu_ang, q, dq, action)
+                self.combine_total_obs(total_obs, omega, eu_ang, q, dq, action)
 
                 # 将obs写入文件，在桌面
-                sp_logger.save(obs, key_comm.timestep, frq)
+                sp_logger.save_75(total_obs, key_comm.timestep, frq)  # total_obs len 75
 
-                action_q = action * self.cfg.env.action_scale
+                if key_comm.timestep == 0:
+                    # action_last[:] = action[:]
+                    action_last[:] = q[:] * 4
 
                 if key_comm.stepCalibrate:
-                    # 当状态是“静态归零模式”时：将所有电机缓慢置于初始位置。12312312311
-                    action[:] = act_gen.calibrate(action_q)
+                    # 当状态是“静态归零模式”时：将所有电机缓慢置于初始位置。
+                    action[:] = self.cfg.env.default_dof_pos[:] / self.cfg.env.action_scale
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
-                    act_gen.episode_length_buf[0] = 0
+
                 elif key_comm.stepTest:
                     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
-                    action[:] = np.array(act_gen.step())
-                    kp[:] = self.cfg.robot_config.kps[:]
-                    kd[:] = self.cfg.robot_config.kds[:]
+                    # action[:] = np.array(act_gen.step()) / self.cfg.env.action_scale
+                    # kp[:] = self.cfg.robot_config.kps[:]
+                    # kd[:] = self.cfg.robot_config.kds[:]
+                    pass
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作
-                    action_net = policy(torch.tensor(policy_input))[0].detach().numpy()
-                    action[0:5] = action_net[0:5]
-                    action[5] = 0.0
-                    action[6:11] = action_net[5:10]
-                    action[11] = 0.0
+                    a_temp = policy(torch.tensor(obs))[0].detach().numpy()
+                    action[0:5] = a_temp[0:5]
+                    action[5] = -action[4]
+                    action[6:11] = a_temp[5:10]
+                    action[11] = a_temp[9]
+                    action[10] = -action[10]
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
-                    act_gen.episode_length_buf[0] = 0
+                    action = np.clip(action,
+                                     self.cfg.env.joint_limit_min,
+                                     self.cfg.env.joint_limit_max)
                 else:
-                    action = np.zeros(self.cfg.env.num_actions, dtype=np.double)
-                    kp[:] = self.cfg.robot_config.kps[:]
-                    kd[:] = self.cfg.robot_config.kds[:]
-                    act_gen.episode_length_buf[0] = 0
+                    print('退出')
 
-                action = np.clip(action, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
+                # 插值
+                if key_comm.timestep < count_max_merge:
+                    action[:] = (action_last[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                                 + action[:] / count_max_merge * key_comm.timestep)
 
-                # action[4] = 0.8
-                # action[10] = 0.8
 
+                # action = np.clip(action,
+                #                  self.cfg.env.joint_limit_min,
+                #                  self.cfg.env.joint_limit_max)
                 target_q = action * self.cfg.env.action_scale
 
                 # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
@@ -172,13 +225,6 @@ class Deploy:
                 # target_q[10] = my_joint_right[0]
                 # target_q[11] = -my_joint_right[1]
 
-                target_q[5] = target_q[4]
-                target_q[4] = -target_q[5]
-
-                target_q[11] = -target_q[10]
-
-                # action = np.clip(action, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
-
                 # target_dq = np.zeros(self.cfg.env.num_actions, dtype=np.double)
                 # Generate PD control
                 # tau = self.pd_control(target_q, q, self.cfg.robot_config.kps,
@@ -186,11 +232,12 @@ class Deploy:
                 # tau = np.clip(tau, -self.cfg.robot_config.tau_limit, self.cfg.robot_config.tau_limit)  # Clamp torques
 
                 # !!!!!!!! send target_q to lcm
-                target_q = np.clip(target_q,
-                                   [-0.5, -0.25, -1.15, -2.2, -0.55, -0.55, -0.5, -0.28, -1.15, -2.2, -0.55, -0.55],
-                                   [0.5, 0.25, 1.15, 0.05, 0.55, 0.55, 0.5, 0.28, 1.15, 0.05, 0.55, 0.55]
-                                   )
-                self.publish_action(target_q, kp, kd)
+                if key_comm.stepCalibrate:
+                    self.publish_action(target_q, kp, kd)
+                elif key_comm.stepNet:
+                    self.publish_action(target_q, kp, kd)
+                else:
+                    pass
                 key_comm.timestep += 1
 
         except KeyboardInterrupt:
@@ -206,20 +253,20 @@ class DeployCfg:
 
     class env:
         dt = 0.005
-        frame_stack = 15
-        c_frame_stack = 3
-        num_single_obs = 41  # 5+10+10+10+3+3
-        num_observations = int(frame_stack * num_single_obs)
-        cycle_time = 0.64
+        num_single_obs = 39  # 3+3+3+10+10+10
         action_scale = 0.25
-
+        cycle_time = 1.0
         num_actions = 12
         num_net = 10
+
         net_index = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10]
-        default_dof_pos = [0., 0., -0.2, 0., 0.1, 0.,
-                           0., 0., -0.2, 0., 0.1, 0.]
+        default_dof_pos = np.array([0., 0., -0.1, 0., 0.1, -0.1,
+                                           0., 0., -0.1, 0., -0.1, 0.1], dtype=np.float32)
         # default_dof_pos = [0., 0., 0., 0., 0., 0.,
         #                    0., 0., 0., 0., 0., 0.]
+
+        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.6, -0.6, -0.5, -0.28, -1.15, -2.2, -0.6, -0.6], dtype=np.float32) / action_scale
+        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.6, 0.6, 0.5, 0.28, 1.15, -0.05, 0.6, 0.6], dtype=np.float32) / action_scale
 
     class normalization:
         class obs_scales:
@@ -234,13 +281,13 @@ class DeployCfg:
         clip_actions = 18.
 
     class cmd:
-        vx = 0.1  # 0.5
+        vx = 0.0  # 0.5
         vy = 0.0  # 0.
         dyaw = 0.0  # 0.05
 
     class robot_config:
         kps = np.array([200, 200, 200, 200, 50, 50, 200, 200, 200, 200, 50, 50], dtype=np.double)
-        kds = np.array([10, 10, 10, 10, 0, 0, 10, 10, 10, 10, 0, 0], dtype=np.double)
+        kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
 
         kps_stand = np.array([100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100], dtype=np.double)
         kds_stand = np.array([10, 10, 10, 5, 2, 2, 10, 10, 10, 5, 2, 2], dtype=np.double)
@@ -258,7 +305,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = '/home/qin/Desktop/code/humanoid-gym-main/logs/zq/exported/policies/policy_0.pt'
+        args.load_model = '/home/qin/Desktop/legged_gym_2/logs/zq01/exported/policies/policy_1.pt'
     policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot(policy)

@@ -131,7 +131,7 @@ class ZqCfg(LeggedRobotCfg):
             stand_still = -0.
             no_fly = 1.25
             target_joint_pos = 1.0
-            body_feet_dist = -1.0
+            # body_feet_dist = -1.0
 
 class ZqCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):

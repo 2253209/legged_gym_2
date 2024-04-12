@@ -68,7 +68,9 @@ def quaternion_to_euler_array(quat):
     yaw_z = np.arctan2(t3, t4)
 
     # Returns roll, pitch, yaw in a NumPy array in radians
-    return np.array([roll_x, pitch_y, yaw_z])
+    eu_ang = np.array([roll_x, pitch_y, yaw_z])
+    eu_ang[eu_ang > math.pi] -= 2 * math.pi
+    return eu_ang
 
 def get_obs(data):
     '''Extracts an observation from the mujoco data structure
@@ -112,7 +114,7 @@ def run_mujoco(policy, cfg):
     action = np.zeros((cfg.env.num_actions), dtype=np.double)
 
     count_lowlevel = 0
-    count_max_merge = 200
+    count_max_merge = 50
     sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/sim_log')
 
     last_time = time.time()
@@ -130,9 +132,8 @@ def run_mujoco(policy, cfg):
 
             if count_lowlevel % cfg.sim_config.decimation == 0:
 
-                obs = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
+                obs = np.zeros((1, cfg.env.num_observations), dtype=np.float32)
                 eu_ang = quaternion_to_euler_array(quat)
-                eu_ang[eu_ang > math.pi] -= 2 * math.pi
                 # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
                 # self.base_euler_xyz,  # 3
                 # self.commands[:, :3] * self.commands_scale,  # 3
@@ -156,7 +157,7 @@ def run_mujoco(policy, cfg):
                 # hist_obs.popleft()
 
                 curr_time = time.time()
-                sp_logger.save(obs, count_lowlevel, curr_time - last_time)
+                sp_logger.save_39(obs, count_lowlevel, curr_time - last_time)
                 last_time = curr_time
 
                 # policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)

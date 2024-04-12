@@ -10,16 +10,16 @@ class ActionGenerator:
         self.num_envs = 1
         self.num_dof = 12
         self.device = "cpu"
-        self.episode_length_buf = torch.zeros(
-            self.num_envs, device=self.device, dtype=torch.long)
+        self.episode_length_buf = np.zeros(
+            self.num_envs, dtype=np.double)
         self.dt = 0.005
         self.target_joint_pos_scale = 0.2
         # default_dof_pos： 所有电机初始位置都是0
         # self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
         self.default_dof_pos = np.array(self.cfg.env.default_dof_pos)
-        self.dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        self.ref_dof_pos = torch.zeros_like(self.dof_pos)
-        self.actions = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+        self.dof_pos = np.zeros(self.num_dof, dtype=np.double)
+        self.ref_dof_pos = np.zeros_like(self.dof_pos)
+        self.actions = np.zeros(self.num_dof, dtype=np.double)
 
 
     def _get_phase(self):
