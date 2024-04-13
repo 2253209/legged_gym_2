@@ -295,7 +295,7 @@ class DeployCfg:
 
     class robot_config:
         kps = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
-        kds = np.array([25, 25, 25, 25, 4, 4, 25, 25, 25, 25, 4, 4], dtype=np.double)
+        kds = np.array([10, 10, 10, 10, 4, 4, 10, 10, 10, 10, 4, 4], dtype=np.double)
 
         kps_stand = np.array([100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100], dtype=np.double)
         kds_stand = np.array([10, 10, 10, 5, 2, 2, 10, 10, 10, 5, 2, 2], dtype=np.double)
