@@ -55,6 +55,8 @@ class Deploy:
         command_for_robot = pd_targets_lcmt()
 
         command_for_robot.q_des = action
+        command_for_robot.q_des[10] = -action[10]
+        command_for_robot.q_des[11] = -action[11]
         command_for_robot.qd_des = np.zeros(self.cfg.env.num_actions)
         command_for_robot.kp = kp
         command_for_robot.kd = kd
@@ -153,7 +155,11 @@ class Deploy:
         act_gen = ActionGenerator(self.cfg)
 
         sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log')
+
         try:
+            for i in range(10):
+                policy(torch.tensor(obs))[0].detach().numpy()
+
             while key_comm.listening:
                 c_delay = time.time() - current_time
                 s_delay = self.cfg.env.dt - c_delay
@@ -196,8 +202,7 @@ class Deploy:
                     action[0:5] = a_temp[0:5]
                     action[5] = -action[4]
                     action[6:11] = a_temp[5:10]
-                    action[11] = a_temp[9]
-                    action[10] = -action[10]
+                    action[11] = -a_temp[9]
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
                     action = np.clip(action, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
@@ -206,8 +211,8 @@ class Deploy:
 
                 # 插值
                 if key_comm.timestep < count_max_merge:
-                    action[:] = (action_last[:] / count_max_merge * (count_max_merge - key_comm.timestep)
-                                 + action[:] / count_max_merge * key_comm.timestep)
+                    action[:] = (action_last[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
+                                 + action[:] / count_max_merge * (key_comm.timestep + 1))
 
 
                 # action = np.clip(action,
