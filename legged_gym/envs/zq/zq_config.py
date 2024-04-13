@@ -74,10 +74,10 @@ class ZqCfg(LeggedRobotCfg):
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 5
+        decimation = 2
 
     class sim(LeggedRobotCfg.sim):
-        dt = 0.001
+        dt = 0.005
 
     class viewer(LeggedRobotCfg.viewer):
         ref_env = 0

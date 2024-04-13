@@ -102,7 +102,7 @@ class Deploy:
         obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
         obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
         obs[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
-        obs[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        obs[0, 19:29] = 0.  # dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
         obs[0, 29:39] = action[self.cfg.env.net_index]  # 10
 
         obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
@@ -114,7 +114,7 @@ class Deploy:
         total_data[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
         total_data[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
         total_data[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
-        total_data[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        total_data[0, 19:29] = 0.  # dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
         total_data[0, 29:39] = action[self.cfg.env.net_index]  # 10
         total_data[0, 39:51] = q[:]
         total_data[0, 51:63] = dq[:]
@@ -242,8 +242,8 @@ class Deploy:
                 if key_comm.stepCalibrate:
                     self.publish_action(target_q, kp, kd)
                 elif key_comm.stepNet:
-                    # self.publish_action(target_q, kp, kd)
-                    pass
+                    self.publish_action(target_q, kp, kd)
+                    # pass
                 else:
                     pass
                 key_comm.timestep += 1
