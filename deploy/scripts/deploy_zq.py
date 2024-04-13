@@ -175,11 +175,11 @@ class Deploy:
 
                 if key_comm.timestep == 0:
                     # action_last[:] = action[:]
-                    action_last[:] = q[:] * 4
+                    action_last[:] = q[:]
 
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机缓慢置于初始位置。
-                    action[:] = self.cfg.env.default_dof_pos[:] / self.cfg.env.action_scale
+                    action[:] = self.cfg.env.default_dof_pos[:]
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
@@ -192,6 +192,7 @@ class Deploy:
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作
                     a_temp = policy(torch.tensor(obs))[0].detach().numpy()
+                    a_temp *= self.cfg.env.action_scale
                     action[0:5] = a_temp[0:5]
                     action[5] = -action[4]
                     action[6:11] = a_temp[5:10]
@@ -199,9 +200,7 @@ class Deploy:
                     action[10] = -action[10]
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
-                    action = np.clip(action,
-                                     self.cfg.env.joint_limit_min,
-                                     self.cfg.env.joint_limit_max)
+                    action = np.clip(action, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
                 else:
                     print('退出')
 
@@ -214,7 +213,7 @@ class Deploy:
                 # action = np.clip(action,
                 #                  self.cfg.env.joint_limit_min,
                 #                  self.cfg.env.joint_limit_max)
-                target_q = action * self.cfg.env.action_scale
+                target_q[:] = action[:]
 
                 # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
                 # my_joint_left, _ = decouple(target_q[5], target_q[4], "left")
@@ -254,7 +253,7 @@ class DeployCfg:
     class env:
         dt = 0.005
         num_single_obs = 39  # 3+3+3+10+10+10
-        action_scale = 0.25
+        action_scale = 0.1
         cycle_time = 1.0
         num_actions = 12
         num_net = 10
@@ -265,8 +264,8 @@ class DeployCfg:
         # default_dof_pos = [0., 0., 0., 0., 0., 0.,
         #                    0., 0., 0., 0., 0., 0.]
 
-        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.6, -0.6, -0.5, -0.28, -1.15, -2.2, -0.6, -0.6], dtype=np.float32) / action_scale
-        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.6, 0.6, 0.5, 0.28, 1.15, -0.05, 0.6, 0.6], dtype=np.float32) / action_scale
+        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.6, -0.6, -0.5, -0.28, -1.15, -2.2, -0.6, -0.6], dtype=np.float32)
+        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.6, 0.6, 0.5, 0.28, 1.15, -0.05, 0.6, 0.6], dtype=np.float32)
 
     class normalization:
         class obs_scales:

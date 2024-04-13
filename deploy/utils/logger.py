@@ -53,10 +53,7 @@ class SimpleLogger:
             k = 0
             self.file.write('%d,%d,' % (step,int(time * 10 ** 6)))
             for index, item in enumerate(row):  # 39
-                if 29 <= index < 39:
-                    self.file.write(' %.4f,' % (item / 4))
-                else:
-                    self.file.write(' %.4f,' % item)
+                self.file.write(' %.4f,' % item)
                 k += 1
 
             self.file.write('\n')
@@ -66,12 +63,7 @@ class SimpleLogger:
             k = 0
             self.file.write('%d,%d,' % (step,int(time * 10 ** 6)))
             for index, item in enumerate(row):  # 75
-                if 29 <= index < 39:
-                    self.file.write(' %.4f,' % (item / 4))
-                elif 63 <= index < 75:
-                    self.file.write(' %.4f,' % (item / 4))
-                else:
-                    self.file.write(' %.4f,' % item)
+                self.file.write(' %.4f,' % item)
                 k += 1
 
             self.file.write('\n')
