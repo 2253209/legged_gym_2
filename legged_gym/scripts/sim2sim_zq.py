@@ -121,8 +121,8 @@ def run_mujoco(policy, cfg):
     last_time = time.time()
     curr_time = 0
     # for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
-    action_startup = np.array([0.0, 0.0, 0.1, -0.15, 0.15,
-                               0.0, 0.0, 0.1, -0.15, 0.15]) * 1 / cfg.control.action_scale
+    action_startup = np.array([0.0, 0.0, 0.2, -0.53, 0.3,
+                               0.0, 0.0, 0.2, -0.53, 0.3]) * 1 / cfg.control.action_scale
     action[:] += action_startup[:]
     try:
         obs = np.zeros((1, cfg.env.num_observations), dtype=np.float32)  # 39
@@ -178,8 +178,8 @@ def run_mujoco(policy, cfg):
                 # for i in range(cfg.env.frame_stack):
                 #     policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
 
-                action[:] = policy(torch.tensor(obs))[0].detach().numpy()
-                # action[:] = action_startup[:]
+                # action[:] = policy(torch.tensor(obs))[0].detach().numpy()
+                action[:] = action_startup[:]
 
                 if count_lowlevel < count_max_merge:
                     # print(f'{count_lowlevel} action[2]={action[2]}', end='')
@@ -232,7 +232,7 @@ if __name__ == '__main__':
 
         class robot_config:
             kps = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
-            kds = np.array([10, 10, 10, 10, 5, 10, 10, 10, 10, 5], dtype=np.double)
+            kds = np.array([25, 25, 25, 25, 4, 25, 25, 25, 25, 4], dtype=np.double)
             tau_limit = 200. * np.ones(10, dtype=np.double)
 
     policy = torch.jit.load(args.load_model)

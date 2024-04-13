@@ -102,7 +102,7 @@ class Deploy:
         obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
         obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
         obs[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
-        obs[0, 19:29] = 0.  # dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        obs[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
         obs[0, 29:39] = action[self.cfg.env.net_index]  # 10
 
         obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
@@ -114,7 +114,7 @@ class Deploy:
         total_data[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
         total_data[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
         total_data[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
-        total_data[0, 19:29] = 0.  # dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        total_data[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
         total_data[0, 29:39] = action[self.cfg.env.net_index]  # 10
         total_data[0, 39:51] = q[:]
         total_data[0, 51:63] = dq[:]
@@ -260,7 +260,7 @@ class Deploy:
 class DeployCfg:
 
     class env:
-        dt = 0.005
+        dt = 0.01
         num_single_obs = 39  # 3+3+3+10+10+10
         action_scale = 0.1
         cycle_time = 1.0
@@ -268,8 +268,8 @@ class DeployCfg:
         num_net = 10
 
         net_index = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10]
-        default_dof_pos = np.array([0., 0., 0.1, -0.15, 0.15, -0.15,
-                                    0., 0., 0.1, -0.15, 0.15, -0.15], dtype=np.float32)
+        default_dof_pos = np.array([0., 0., 0.2, -0.53, 0.4, -0.4,
+                                    0., 0., 0.2, -0.53, 0.4, -0.4], dtype=np.float32)
         # default_dof_pos = [0., 0., 0., 0., 0., 0.,
         #                    0., 0., 0., 0., 0., 0.]
 
@@ -294,8 +294,8 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([200, 200, 200, 200, 50, 50, 200, 200, 200, 200, 50, 50], dtype=np.double)
-        kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
+        kps = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
+        kds = np.array([25, 25, 25, 25, 4, 4, 25, 25, 25, 25, 4, 4], dtype=np.double)
 
         kps_stand = np.array([100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100], dtype=np.double)
         kds_stand = np.array([10, 10, 10, 5, 2, 2, 10, 10, 10, 5, 2, 2], dtype=np.double)
