@@ -105,6 +105,7 @@ def run_mujoco(policy, cfg):
     data = mujoco.MjData(model)
     for index, value in enumerate(cfg.init_state.default_joint_angles.values()):
         data.qpos[7 + index] = value
+        # data.qpos[index] = value
     # data.qpos[-10:] = [0.0, 0., 0.2, -0.4, 0.2,
     #                    -0.0, 0., 0.2, -0.4, 0.2,]
     mujoco.mj_step(model, data)
@@ -124,6 +125,13 @@ def run_mujoco(policy, cfg):
                                0.0, 0.0, 0.1, -0.15, 0.15]) * 1 / cfg.control.action_scale
     action[:] += action_startup[:]
     try:
+        obs = np.zeros((1, cfg.env.num_observations), dtype=np.float32)  # 39
+        total_data = np.zeros((1, 75), dtype=np.float32)  # 39+36
+        for i in range(10):
+            policy(torch.tensor(obs))[0].detach().numpy()
+
+        last_time = time.time()
+        curr_time = 0
         for _ in range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)):
             # Obtain an observation
             q, dq, quat, v, omega, gvec = get_obs(data)
@@ -132,7 +140,7 @@ def run_mujoco(policy, cfg):
 
             if count_lowlevel % cfg.sim_config.decimation == 0:
 
-                obs = np.zeros((1, cfg.env.num_observations), dtype=np.float32)
+
                 eu_ang = quaternion_to_euler_array(quat)
                 # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
                 # self.base_euler_xyz,  # 3
@@ -155,9 +163,15 @@ def run_mujoco(policy, cfg):
 
                 # hist_obs.append(obs)
                 # hist_obs.popleft()
-
+                total_data[0, 0:39] = obs[0, 0:39]
+                total_data[0, 39:44] = q[0:5]
+                total_data[0, 45:50] = q[5:10]
+                total_data[0, 51:56] = dq[0:5]
+                total_data[0, 57:62] = dq[5:10]
+                total_data[0, 63:68] = target_q[0:5]
+                total_data[0, 69:74] = target_q[5:10]
                 curr_time = time.time()
-                sp_logger.save_39(obs, count_lowlevel, curr_time - last_time)
+                sp_logger.save_75(total_data, count_lowlevel, curr_time - last_time)
                 last_time = curr_time
 
                 # policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
@@ -213,7 +227,7 @@ if __name__ == '__main__':
                 mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_line_foot.xml'
 
             sim_duration = 60.0
-            dt = 0.002
+            dt = 0.001
             decimation = 5
 
         class robot_config:

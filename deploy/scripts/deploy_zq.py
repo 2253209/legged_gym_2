@@ -55,8 +55,8 @@ class Deploy:
         command_for_robot = pd_targets_lcmt()
 
         command_for_robot.q_des = action
-        command_for_robot.q_des[10] = -action[10]
-        command_for_robot.q_des[11] = -action[11]
+        command_for_robot.q_des[10] = -action[10]  # 左脚长电机，在输出给机器人的时候，才将脚部电机的值转换成真实正负号
+        command_for_robot.q_des[11] = -action[11]  # 左脚短电机
         command_for_robot.qd_des = np.zeros(self.cfg.env.num_actions)
         command_for_robot.kp = kp
         command_for_robot.kd = kd
@@ -74,8 +74,8 @@ class Deploy:
         Extracts an observation from the mujoco data structure
         """
         q = es.joint_pos.astype(np.double)
-        q[10] = -q[10]
-        q[11] = -q[11]
+        q[10] = -q[10]  # 左脚长电机，在接收电机数值的时候，真实电机数值转化成模型正负号
+        q[11] = -q[11]  # 左脚短电机
         dq = es.joint_vel.astype(np.double)
         dq[10] = -dq[10]
         dq[11] = -dq[11]
@@ -107,18 +107,18 @@ class Deploy:
 
         obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
-    def combine_total_obs(self, total_obs, omega, eu_ang, q, dq, action):
-        total_obs[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
-        total_obs[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
-        total_obs[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
-        total_obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
-        total_obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
-        total_obs[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
-        total_obs[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
-        total_obs[0, 29:39] = action[self.cfg.env.net_index]  # 10
-        total_obs[0, 39:51] = q[:]
-        total_obs[0, 51:63] = dq[:]
-        total_obs[0, 63:75] = action[:]
+    def combine_total_obs(self, total_data, omega, eu_ang, q, dq, action, target_q):
+        total_data[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
+        total_data[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
+        total_data[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
+        total_data[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
+        total_data[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
+        total_data[0, 9:19] = q[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_pos  # 10
+        total_data[0, 19:29] = dq[self.cfg.env.net_index] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        total_data[0, 29:39] = action[self.cfg.env.net_index]  # 10
+        total_data[0, 39:51] = q[:]
+        total_data[0, 51:63] = dq[:]
+        total_data[0, 63:75] = target_q[:]
 
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
@@ -131,16 +131,16 @@ class Deploy:
 
     def run_robot(self, policy):
 
-        target_q = np.zeros(self.cfg.env.num_actions, dtype=np.double)
         action = np.zeros(self.cfg.env.num_actions, dtype=np.double)
         action[:] = self.cfg.env.default_dof_pos[:]
-        action_last = np.zeros_like(action)
+        q_last = np.zeros_like(action)
+        target_q = np.zeros_like(action)
 
         kp = np.zeros(self.cfg.env.num_actions)
         kd = np.zeros(self.cfg.env.num_actions)
 
         obs = np.zeros((1, self.cfg.env.num_single_obs), dtype=np.float32)
-        total_obs = np.zeros((1, 75), dtype=np.float32)  # 39+36
+        total_data = np.zeros((1, 75), dtype=np.float32)  # 39+36
 
         current_time = time.time()
 
@@ -174,18 +174,19 @@ class Deploy:
                 q, dq, eu_ang, omega = self.get_obs(es)
 
                 self.combine_obs(obs, omega, eu_ang, q, dq, action)
-                self.combine_total_obs(total_obs, omega, eu_ang, q, dq, action)
+                self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q)
 
                 # 将obs写入文件，在桌面
-                sp_logger.save_75(total_obs, key_comm.timestep, frq)  # total_obs len 75
+                sp_logger.save_75(total_data, key_comm.timestep, frq)  # total_obs len 75
 
                 if key_comm.timestep == 0:
                     # action_last[:] = action[:]
-                    action_last[:] = q[:]
+                    q_last[:] = q[:]
 
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机缓慢置于初始位置。
-                    action[:] = self.cfg.env.default_dof_pos[:]
+                    action[:] = self.cfg.env.default_dof_pos[:] * (1.0 // self.cfg.env.action_scale)
+                    target_q[:] = self.cfg.env.default_dof_pos[:]
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
@@ -198,27 +199,29 @@ class Deploy:
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作
                     a_temp = policy(torch.tensor(obs))[0].detach().numpy()
-                    a_temp *= self.cfg.env.action_scale
+                    # print(f'net[2]={a_temp[2]} ', end='')
                     action[0:5] = a_temp[0:5]
                     action[5] = -action[4]
                     action[6:11] = a_temp[5:10]
                     action[11] = -a_temp[9]
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
-                    action = np.clip(action, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
+                    target_q = action * self.cfg.env.action_scale
+                    target_q = np.clip(target_q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
+
                 else:
                     print('退出')
 
                 # 插值
                 if key_comm.timestep < count_max_merge:
-                    action[:] = (action_last[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                                 + action[:] / count_max_merge * (key_comm.timestep + 1))
+                    target_q[:] = (q_last[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
+                                 + target_q[:] / count_max_merge * (key_comm.timestep + 1))
 
-
+                # print(f'action[2]={action[2]}, action_scaled[2]={action_scaled[2]},')
                 # action = np.clip(action,
                 #                  self.cfg.env.joint_limit_min,
                 #                  self.cfg.env.joint_limit_max)
-                target_q[:] = action[:]
+                # target_q[:] = action_scaled[:]
 
                 # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
                 # my_joint_left, _ = decouple(target_q[5], target_q[4], "left")
@@ -239,7 +242,8 @@ class Deploy:
                 if key_comm.stepCalibrate:
                     self.publish_action(target_q, kp, kd)
                 elif key_comm.stepNet:
-                    self.publish_action(target_q, kp, kd)
+                    # self.publish_action(target_q, kp, kd)
+                    pass
                 else:
                     pass
                 key_comm.timestep += 1
@@ -265,7 +269,7 @@ class DeployCfg:
 
         net_index = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10]
         default_dof_pos = np.array([0., 0., 0.1, -0.15, 0.15, -0.15,
-                                    0., 0., 0.1, -0.15, -0.15, 0.15], dtype=np.float32)
+                                    0., 0., 0.1, -0.15, 0.15, -0.15], dtype=np.float32)
         # default_dof_pos = [0., 0., 0., 0., 0., 0.,
         #                    0., 0., 0., 0., 0., 0.]
 
