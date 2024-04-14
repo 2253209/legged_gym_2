@@ -46,20 +46,20 @@ class Zq12Cfg(LeggedRobotCfg):
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.840]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.855]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.1,
             'JOINT_Y2': 0.0,
-            'JOINT_Y3': 0.20,
+            'JOINT_Y3': 0.25,
             'JOINT_Y4': -0.53,
-            'JOINT_Y5': 0.28,
+            'JOINT_Y5': 0.3,
             'JOINT_Y6': 0.1,
 
             'JOINT_Z1': 0.1,
             'JOINT_Z2': 0.0,
-            'JOINT_Z3': 0.20,
+            'JOINT_Z3': 0.25,
             'JOINT_Z4': -0.53,
-            'JOINT_Z5': 0.28,
+            'JOINT_Z5': 0.3,
             'JOINT_Z6': -0.1,
         }
         target_joint_angles = [0.0, 0.0, 0.25, -0.53, 0.3, 0.0,
@@ -80,6 +80,7 @@ class Zq12Cfg(LeggedRobotCfg):
 
     class sim(LeggedRobotCfg.sim):
         dt = 0.005
+        gravity = [0., 0., -9.81]  # [m/s^2]
 
     class viewer(LeggedRobotCfg.viewer):
         ref_env = 0
@@ -98,7 +99,8 @@ class Zq12Cfg(LeggedRobotCfg):
             heading = [-0.0, 0.0]
 
     class asset(LeggedRobotCfg.asset):
-        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
+        # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/urdf/zq_box_foot.urdf'
         name = "zq01"
         foot_name = 'foot'
         penalize_contacts_on = ['3', '4']
