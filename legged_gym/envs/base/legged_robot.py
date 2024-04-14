@@ -497,7 +497,10 @@ class LeggedRobot(BaseTask):
         self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]
         self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
         self.base_quat = self.root_states[:, 3:7]
-        self.rigid_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, 11, 13)   # 13 13
+        if self.cfg.env.num_actions == 12:
+            self.rigid_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, 13, 13)   # 13 13
+        else:
+            self.rigid_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, 11, 13)
 
         self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: num_envs, num_bodies, xyz axis
 

@@ -1,6 +1,6 @@
 <mujoco model="zq01">
   <compiler angle="radian" meshdir="../meshes/" eulerseq="xyz"/>
-  <option timestep='0.002' iterations='50' solver='PGS' gravity='0 0 -9.81'>
+  <option timestep='0.005' iterations='50' solver='PGS' gravity='0 0 -9.81'>
     <flag sensornoise="enable" frictionloss="enable"/>
   </option>
   <size njmax="500" nconmax="100" />
@@ -54,7 +54,7 @@
     <light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1"/>
     <geom name="ground" type="plane" size="0 0 1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1" conaffinity="15"/>
  
-    <body name="base" pos="0.0 0.0 0.852">
+    <body name="base" pos="0.0 0.0 0.840">
       <inertial pos="-0.02535033 0.0 0.13619966" euler="0 0 0" mass="10.0" diaginertia="0.339706 0.313980 0.132461" />
       <geom type="mesh" mesh="base" group="1" class="visualgeom"/>
       <geom type="sphere" pos="0.01 0 0.15" size="0.25" group="2" class="collisiongeom"/>
@@ -86,7 +86,7 @@
                     <inertial pos="0 0 0" euler="0 0 0"  mass="0.158722" diaginertia="0.0000353 0.0000350 0.0000395"/>
                     <joint name="JOINT_Y5" pos="0 0 0" axis="0 -1 0" limited="true" range="-1.0 1.0"/>
 	                <geom type="mesh" mesh="Y5" group="1" class="visualgeom" />
-                    <geom size="0.025 0.01" pos="0 0 -0.37" type="capsule" group="2" class="visualgeom"/>
+                    <geom size="0.025 0.01" pos="0 0 0" type="capsule" group="2" class="visualgeom"/>
 	                <body name="Y6_foot" pos="0 0 0">
 	                    <inertial pos="0.0274653 -0.00180832 -0.0348838" euler="0 0 0" mass="1.08451" diaginertia="0.00565074 0.00533615 0.000960103"/>
 	                    <joint name="JOINT_Y6" pos="0 0 0" axis="1 0 0" limited="true" range="-0.6 0.6"/>
@@ -122,7 +122,7 @@
                 <body name="Z5" pos="0 0 -0.37">
                     <inertial pos="0 0 0" euler="0 0 0"  mass="0.158722" diaginertia="0.0000353 0.0000350 0.0000395"/>
                     <joint name="JOINT_Z5" pos="0 0 0" axis="0 -1 0" limited="true" range="-1.0 1.0"/>
-                    <geom size="0.025 0.01" pos="0 -0.00029 -0.37" type="capsule" group="2" class="visualgeom"/>
+                    <geom size="0.025 0.01" pos="0 0 0" type="capsule" group="2" class="visualgeom"/>
                     <geom type="mesh" mesh="Z5" group="1" class="visualgeom" />
                     <body name="Z6_foot" pos="0 0 0">
                       <inertial pos="0.0274653 0.00180832 -0.0348838" euler="0 0 0" mass="1.08451" diaginertia="0.00565074 0.00533615 0.000960103"/>

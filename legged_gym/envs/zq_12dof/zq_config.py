@@ -27,15 +27,15 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
-
+from legged_gym import LEGGED_GYM_ROOT_DIR
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
-class ZqCfg(LeggedRobotCfg):
+class Zq12Cfg(LeggedRobotCfg):
     class env(LeggedRobotCfg.env):
         num_envs = 4096
-        num_observations = 39  # 169
-        num_actions = 10
+        num_observations = 45  # 169
+        num_actions = 12
         env_spacing = 1.
 
     class terrain(LeggedRobotCfg.terrain):
@@ -48,28 +48,30 @@ class ZqCfg(LeggedRobotCfg):
     class init_state(LeggedRobotCfg.init_state):
         pos = [0.0, 0.0, 0.840]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
-            'JOINT_Y1': -0.0,
+            'JOINT_Y1': -0.1,
             'JOINT_Y2': 0.0,
-            'JOINT_Y3': 0.25,
+            'JOINT_Y3': 0.20,
             'JOINT_Y4': -0.53,
-            'JOINT_Y5': 0.3,
-            # 'toe_joint_left': -1.57,
+            'JOINT_Y5': 0.28,
+            'JOINT_Y6': 0.1,
 
-            'JOINT_Z1': 0.0,
+            'JOINT_Z1': 0.1,
             'JOINT_Z2': 0.0,
-            'JOINT_Z3': 0.25,
+            'JOINT_Z3': 0.20,
             'JOINT_Z4': -0.53,
-            'JOINT_Z5': 0.3,
-            # 'toe_joint_right': -1.57
+            'JOINT_Z5': 0.28,
+            'JOINT_Z6': -0.1,
         }
-        target_joint_angles = [-0.0, 0.0, 0.25, -0.53, 0.3,
-                               0.0, 0.0, 0.25, -0.53, 0.3]
+        target_joint_angles = [0.0, 0.0, 0.25, -0.53, 0.3, 0.0,
+                               0.0, 0.0, 0.25, -0.53, 0.3, 0.0]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
-        stiffness = {'1': 200.0, '2': 200.0, '3': 200.0, '4': 200.0, '5': 200.0
+        stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 100.0, 'JOINT_Y6': 100.0,
+                     'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 100.0, 'JOINT_Z6': 100.0,
                      }  # [N*m/rad]
-        damping = {'1': 10.0, '2': 10.0, '3': 10.0, '4': 10.0, '5': 4.0,
+        damping = {'JOINT_Y1': 10.0, 'JOINT_Y2': 10.0, 'JOINT_Y3': 10.0, 'JOINT_Y4': 10.0, 'JOINT_Y5': 2.0, 'JOINT_Y6': 2.0,
+                   'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 2.0, 'JOINT_Z6': 2.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.1
@@ -96,12 +98,14 @@ class ZqCfg(LeggedRobotCfg):
             heading = [-0.0, 0.0]
 
     class asset(LeggedRobotCfg.asset):
-        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_line_foot.xml'
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
         name = "zq01"
         foot_name = 'foot'
-        terminate_after_contacts_on = ['base', '3', '4']
+        penalize_contacts_on = ['3', '4']
+        terminate_after_contacts_on = []
         flip_visual_attachments = False
-        self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
+        self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
+        terminate_body_height = 0.4
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = False
@@ -120,51 +124,53 @@ class ZqCfg(LeggedRobotCfg):
         only_positive_rewards = False
         base_height_target = 0.8
         class scales(LeggedRobotCfg.rewards.scales):
-            termination = -100.  # 4. 不倒
-            tracking_ang_vel = 0.0
-            torques = -5.e-6
-            dof_acc = -2.e-7
-            lin_vel_z = -0.5
-            feet_air_time = 0.
-            dof_pos_limits = -1.
-            no_fly = 0
-            dof_vel = -0.0
-            ang_vel_xy = -0.0
-            feet_contact_forces = -1.  # 2.惩罚 == 0
-            base_height = -10.0  # 1.奖励高度
             # termination = -200.
-            # tracking_lin_vel = 1.0  # 6. 奖励速度为0
             # tracking_ang_vel = 1.0
-            # lin_vel_z = -0.5
-            # ang_vel_xy = -0.0
-            # orientation = -10.0  # 5. 重力投影
-            #
-            # torques = -5.e-5
-            # dof_vel = -0.01
+            # torques = -5.e-6
             # dof_acc = -2.e-7
-            #
-            # base_height = -0.1
-            # feet_air_time = 0.
-            # collision = -0.
+            # lin_vel_z = -0.5
+            # feet_air_time = 5.
             # dof_pos_limits = -1.
-            #
-            # feet_stumble = -0.0
+            # no_fly = 0.25
+            # dof_vel = -0.0
+            # ang_vel_xy = -0.0
             # feet_contact_forces = -0.
+
+            termination = -200.  # 4. 不倒
+            tracking_lin_vel = 1.0  # 6. 奖励速度为0
+            tracking_ang_vel = 0.0
+            lin_vel_z = -0.0
+            ang_vel_xy = -0.0
+            orientation = -1.0  # 5. 重力投影
             #
-            # action_rate = -0.01
-            # stand_still = -0.
-            # no_fly = 1.25
-            target_joint_pos = 1.1  # 3. 惩罚 身体关节角度 偏离
+            torques = -5.e-6
+            dof_vel = -0.0
+            dof_acc = -2.e-6
+            #
+            base_height = -2.1  # 1.奖励高度？惩罚高度方差
+            feet_air_time = 0.
+            collision = -0.1
+            dof_pos_limits = -0.
+            #
+            feet_stumble = -0.0
+            feet_contact_forces = -0.
+            #
+            action_rate = -0.
+            stand_still = -1.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
+            no_fly = 2.25  # 2. 奖励：两脚都在地上，有一定压力
+            # target_joint_pos = 1.1  # 3. 惩罚 身体关节角度 偏离
             # body_feet_dist = -1.0
 
 
 
 
-class ZqCfgPPO(LeggedRobotCfgPPO):
+class Zq12CfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
-        experiment_name = 'zq01'
+        experiment_name = 'zq12'
         max_iterations = 3000
+        # logging
+        save_interval = 100
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01

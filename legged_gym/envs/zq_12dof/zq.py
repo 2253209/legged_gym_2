@@ -49,7 +49,7 @@ def get_euler_xyz_tensor(quat):
     return euler_xyz
 
 
-class ZqRobot(LeggedRobot):
+class Zq12Robot(LeggedRobot):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
         self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
@@ -59,6 +59,7 @@ class ZqRobot(LeggedRobot):
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         self.init_position = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
         self.body_pos = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
+        self.reset_buf2 = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
 
     def compute_observations(self):
         """ Computes observations
@@ -71,9 +72,9 @@ class ZqRobot(LeggedRobot):
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz,  # 3
             self.commands[:, :3] * self.commands_scale,  # 3
-            self.dof_pos * self.obs_scales.dof_pos,  # 10
-            self.dof_vel * self.obs_scales.dof_vel,  # 10
-            self.actions  # 10
+            self.dof_pos * self.obs_scales.dof_pos,  # 12
+            self.dof_vel * self.obs_scales.dof_vel,  # 12
+            self.actions  # 12
             ), dim=-1)
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
@@ -131,18 +132,24 @@ class ZqRobot(LeggedRobot):
         noise_vec[:3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel  # 0.2 * 1 * 0.25 = 0.05
         noise_vec[3:6] = noise_scales.gravity * noise_level  # 0.05 * 1. = 0.05
         noise_vec[6:9] = 0.  # commands
-        noise_vec[9:19] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos  # 0.01 * 1 * 1. = 0.01
-        noise_vec[19:29] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel  # 1.5 * 1 * 0.05 = 0.075
-        noise_vec[29:39] = 0.  # previous actions
+        noise_vec[9:21] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos  # 0.01 * 1 * 1. = 0.01
+        noise_vec[21:33] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel  # 1.5 * 1 * 0.05 = 0.075
+        noise_vec[33:45] = 0.  # previous actions
         # if self.cfg.terrain.measure_heights:
         #     noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec
 
+    def check_termination(self):
+        super().check_termination()
+        self.reset_buf2 = self.root_states[:, 2] < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
+        self.reset_buf |= self.reset_buf2
+
     # ------------------------ rewards --------------------------------------------------------------------------------
 
     def _reward_no_fly(self):
+        # 奖励两脚都在地上，有一定压力
         contacts = self.contact_forces[:, self.feet_indices, 2] > 1.1
-        single_contact = torch.sum(1. * contacts, dim=1) < 2
+        single_contact = torch.sum(1. * contacts, dim=1) == 2
         return 1. * single_contact
 
     def _reward_target_joint_pos(self):
@@ -153,7 +160,7 @@ class ZqRobot(LeggedRobot):
         # joint_diff = self.dof_pos - self.default_joint_pd_target
         joint_diff = self.dof_pos - self.target_joint_angles
         left_yaw_roll = joint_diff[:, :2]
-        right_yaw_roll = joint_diff[:, 5: 7]
+        right_yaw_roll = joint_diff[:, 6: 8]
         yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
         yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
         # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)

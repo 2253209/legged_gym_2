@@ -1,6 +1,6 @@
 <mujoco model="zq01">
   <compiler angle="radian" meshdir="../meshes/" eulerseq="xyz"/>
-  <option timestep='0.002' iterations='50' solver='PGS' gravity='0 0 -9.81'>
+  <option timestep='0.005' iterations='50' solver='PGS' gravity='0 0 -9.81'>
     <flag sensornoise="enable" frictionloss="enable"/>
   </option>
   <size njmax="500" nconmax="100" />
@@ -54,7 +54,7 @@
     <light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1"/>
     <geom name="ground" type="plane" size="0 0 1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1" conaffinity="15"/>
  
-    <body name="base" pos="0.0 0.0 0.852">
+    <body name="base" pos="0.0 0.0 0.840">
       <inertial pos="-0.02535033 0.0 0.13619966" euler="0 0 0" mass="10.0" diaginertia="0.339706 0.313980 0.132461" />
       <geom type="mesh" mesh="base" group="1" class="visualgeom"/>
       <geom type="sphere" pos="0.01 0 0.15" size="0.25" group="2" class="collisiongeom"/>

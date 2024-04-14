@@ -27,7 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
-
+from legged_gym import LEGGED_GYM_ROOT_DIR
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class CassieRoughCfg( LeggedRobotCfg ):
@@ -73,7 +73,7 @@ class CassieRoughCfg( LeggedRobotCfg ):
         decimation = 4
         
     class asset( LeggedRobotCfg.asset ):
-        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/cassie/urdf/cassie.urdf'
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/cassie/urdf/cassie.urdf'
         name = "cassie"
         foot_name = 'toe'
         terminate_after_contacts_on = ['pelvis']

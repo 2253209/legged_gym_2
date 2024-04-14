@@ -177,7 +177,7 @@ class Deploy:
                 self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q)
 
                 # 将obs写入文件，在桌面
-                sp_logger.save_75(total_data, key_comm.timestep, frq)  # total_obs len 75
+                sp_logger.save(total_data, key_comm.timestep, frq)  # total_obs.shape=75
 
                 if key_comm.timestep == 0:
                     # action_last[:] = action[:]
