@@ -61,6 +61,13 @@ class Zq12Robot(LeggedRobot):
         self.body_pos = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
         self.reset_buf2 = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
 
+    def step(self, actions):
+        # actions[:, :] = self.default_dof_pos[0, :]
+        # actions[:, 0:4] = self.default_dof_pos[0, 0:4]  # 4=action
+        # actions[:, 5:10] = self.default_dof_pos[0, 5:10]  # 10=action
+        # actions[:, 11] = self.default_dof_pos[0, 11]
+        return super().step(actions)
+
     def compute_observations(self):
         """ Computes observations
         """
@@ -158,13 +165,16 @@ class Zq12Robot(LeggedRobot):
         on penalizing deviation in yaw and roll directions. Excludes yaw and roll from the main penalty.
         """
         # joint_diff = self.dof_pos - self.default_joint_pd_target
-        joint_diff = self.dof_pos - self.target_joint_angles
-        left_yaw_roll = joint_diff[:, :2]
-        right_yaw_roll = joint_diff[:, 6: 8]
-        yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
-        yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
-        return torch.exp(-yaw_roll * 100) - 1.0 * torch.norm(joint_diff, dim=1)
+        # joint_diff = self.dof_pos - self.target_joint_angles
+        # left_yaw_roll = joint_diff[:, :2]
+        # right_yaw_roll = joint_diff[:, 6: 8]
+        # yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
+        # yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
+        # # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
+        # return torch.exp(-yaw_roll * 100) - 1.0 * torch.norm(joint_diff, dim=1)
+        joint_diff = torch.sum((self.dof_pos - self.target_joint_angles)**2, dim=1)
+        imitate_reward = torch.exp(-10*joint_diff)  # positive reward, not the penalty
+        return imitate_reward
 
     def _reward_body_feet_dist(self):
         # Penalize body root xy diff feet xy

@@ -23,7 +23,8 @@ class Sim2simCfg(Zq12Cfg):
 
     class sim(Zq12Cfg.sim):
         sim_duration = 60.0
-        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
+        # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/urdf/zq_box_foot.urdf'
 
 
 def quaternion_to_euler_array(quat):
@@ -193,6 +194,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_1.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_0.pt'
     policy = torch.jit.load(args.load_model)
     run_mujoco(policy, Sim2simCfg())

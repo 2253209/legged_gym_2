@@ -50,28 +50,28 @@ class Zq12Cfg(LeggedRobotCfg):
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.1,
             'JOINT_Y2': 0.0,
-            'JOINT_Y3': 0.25,
+            'JOINT_Y3': 0.28,
             'JOINT_Y4': -0.53,
-            'JOINT_Y5': 0.3,
+            'JOINT_Y5': 0.29,
             'JOINT_Y6': 0.1,
 
             'JOINT_Z1': 0.1,
             'JOINT_Z2': 0.0,
-            'JOINT_Z3': 0.25,
+            'JOINT_Z3': 0.28,
             'JOINT_Z4': -0.53,
-            'JOINT_Z5': 0.3,
+            'JOINT_Z5': 0.29,
             'JOINT_Z6': -0.1,
         }
-        target_joint_angles = [0.0, 0.0, 0.25, -0.53, 0.3, 0.0,
-                               0.0, 0.0, 0.25, -0.53, 0.3, 0.0]
+        target_joint_angles = [-0.1, 0.0, 0.28, -0.53, 0.29, 0.1,
+                               0.1, 0.0, 0.28, -0.53, 0.29, -0.1]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
-        stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 100.0, 'JOINT_Y6': 100.0,
-                     'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 100.0, 'JOINT_Z6': 100.0,
+        stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 200.0, 'JOINT_Y6': 200.0,
+                     'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 200.0, 'JOINT_Z6': 200.0,
                      }  # [N*m/rad]
-        damping = {'JOINT_Y1': 10.0, 'JOINT_Y2': 10.0, 'JOINT_Y3': 10.0, 'JOINT_Y4': 10.0, 'JOINT_Y5': 2.0, 'JOINT_Y6': 2.0,
-                   'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 2.0, 'JOINT_Z6': 2.0,
+        damping = {'JOINT_Y1': 10.0, 'JOINT_Y2': 10.0, 'JOINT_Y3': 10.0, 'JOINT_Y4': 10.0, 'JOINT_Y5': 4.0, 'JOINT_Y6': 4.0,
+                   'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 4.0, 'JOINT_Z6': 4.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.1
@@ -125,6 +125,7 @@ class Zq12Cfg(LeggedRobotCfg):
         max_contact_force = 300.
         only_positive_rewards = False
         base_height_target = 0.8
+        tracking_sigma = 0.10
         class scales(LeggedRobotCfg.rewards.scales):
             # termination = -200.
             # tracking_ang_vel = 1.0
@@ -140,16 +141,16 @@ class Zq12Cfg(LeggedRobotCfg):
 
             termination = -200.  # 4. 不倒
             tracking_lin_vel = 1.0  # 6. 奖励速度为0
-            tracking_ang_vel = 0.0
+            tracking_ang_vel = 1.0
             lin_vel_z = -0.0
             ang_vel_xy = -0.0
-            orientation = -1.0  # 5. 重力投影
+            orientation = -0.0  # 5. 重力投影
             #
-            torques = -5.e-6
+            torques = -1.e-5
             dof_vel = -0.0
-            dof_acc = -2.e-6
+            dof_acc = -1.e-6
             #
-            base_height = -2.1  # 1.奖励高度？惩罚高度方差
+            base_height = -0.0  # 1.奖励高度？惩罚高度方差
             feet_air_time = 0.
             collision = -0.1
             dof_pos_limits = -0.
@@ -158,9 +159,9 @@ class Zq12Cfg(LeggedRobotCfg):
             feet_contact_forces = -0.
             #
             action_rate = -0.
-            stand_still = -1.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
-            no_fly = 2.25  # 2. 奖励：两脚都在地上，有一定压力
-            # target_joint_pos = 1.1  # 3. 惩罚 身体关节角度 偏离
+            stand_still = -0.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
+            no_fly = 0.0  # 2. 奖励：两脚都在地上，有一定压力
+            target_joint_pos = 1.0  # 3. 惩罚 身体关节角度 偏离
             # body_feet_dist = -1.0
 
 
@@ -172,7 +173,7 @@ class Zq12CfgPPO(LeggedRobotCfgPPO):
         experiment_name = 'zq12'
         max_iterations = 30000
         # logging
-        save_interval = 1000
+        save_interval = 400
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01
