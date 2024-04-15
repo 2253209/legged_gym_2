@@ -15,6 +15,7 @@ class CSVPlotter:
         self.style.configure("TLabel", font=("Helvetica", 14))
         self.style.configure("TButton", font=("Helvetica", 14), padding=10)
 
+        self.title_frame = pd.DataFrame()
         self.data_frame = pd.DataFrame()
         self.selected_columns = []
         self.status_text = '停止模式'
@@ -22,7 +23,6 @@ class CSVPlotter:
         self.create_widgets()
         self.create_menu()
         self.create_listbox()
-        self.populate_options()
 
         self.fig, self.ax = plt.subplots()
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.graph_frame)
@@ -98,7 +98,7 @@ class CSVPlotter:
 
     def populate_options(self):
         self.b1.delete(0, tk.END)
-        for column in self.data_frame.columns:
+        for column in self.title_frame.columns:
             self.b1.insert(tk.END, column)
 
     def plot_graph(self):

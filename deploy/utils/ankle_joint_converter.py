@@ -118,7 +118,7 @@ def forward_kinematics(theta_ref,leg='right'or'left'):
     s_11 = np.array([0, 1, 0])  # A1点单位方向向量
     s_21 = np.array([0, 1, 0])  # A2点单位方向向量
     l_bar = 45  # A1B1
-    if leg == 'right':
+    if leg == 'left':
         l_rod1 = 216  # B1C1
         l_rod2 = 120  # B2C2
         l_spacing1 = 47.9
@@ -140,12 +140,12 @@ def forward_kinematics(theta_ref,leg='right'or'left'):
         f_ik = np.block([THETA_k[0], THETA_k[1]])
         x_c_k = x_c_k - np.linalg.pinv(J_c_k) @ (f_ik - theta_ref)
         f_error = f_ik - theta_ref
-    return x_c_k/ angle2rad
+    return x_c_k
 
 # 解耦
 def decouple(roll,pitch,leg='right'or'left'):
     my_l_bar = 45  # A1B1
-    if leg == 'right':
+    if leg == 'left':
         my_l_rod1 = 216  # B1C1
         my_l_rod2 = 120  # B2C2
         my_l_spacing1 = 47.9
@@ -168,22 +168,37 @@ def decouple(roll,pitch,leg='right'or'left'):
     
     return my_THETA, Jac
 
+def convert_ankle_net_to_real(p1, p2, p3, p4):  # 4/5/10/11
+    joint_right, _ = decouple(p2, p1, "right")
+    joint_left, _ = decouple(p4, p3, "left")
+    return joint_right[0], -joint_right[1], -joint_left[0], joint_left[1]  # 4\5\10\11
+
+
+def convert_ankle_real_to_net(p1, p2, p3, p4):  # 4\5\10\11
+    joint_right = forward_kinematics(np.array([p1, p2]), leg='right')
+    joint_left = forward_kinematics(np.array([p3, p4]), leg='left')
+    return joint_right[1], joint_right[0], joint_left[1], joint_left[0]
+
+
 if __name__ == '__main__':
     angle2rad = 1 / 180 * np.pi
     red2angle = 180 / np.pi
+    #
+    # # my_theta_ref = np.array([-46.38490723, -53.91584432]) * angle2rad  # 参考电机角度指令
+    # my_theta_ref = np.array([6, 6]) * angle2rad
+    # print('my_theta_ref:', my_theta_ref)
+    # my_joint_angles = forward_kinematics(my_theta_ref,leg='left')
+    #
+    # print('my_joint_angles:', my_joint_angles)
+    #
+    # my_compute_angles,_ = decouple(my_joint_angles[0]*angle2rad,my_joint_angles[1]*angle2rad, leg='left')
+    #
+    # print('my_compute_angles:', np.array(my_compute_angles) * red2angle)
+    #
+    # my_joint_right, _ = decouple(0.0,0.3,"right")
+    # my_joint_left, _ = decouple(0.0,0.3,"left")
+    #
+    # print(my_joint_right, my_joint_left)
 
-    # my_theta_ref = np.array([-46.38490723, -53.91584432]) * angle2rad  # 参考电机角度指令
-    my_theta_ref = np.array([6, 6]) * angle2rad
-    print('my_theta_ref:', my_theta_ref)
-    my_joint_angles = forward_kinematics(my_theta_ref,leg='left')
-
-    print('my_joint_angles:', my_joint_angles)
-
-    my_compute_angles,_ = decouple(my_joint_angles[0]*angle2rad,my_joint_angles[1]*angle2rad,leg='left')
-
-    print('my_compute_angles:', np.array(my_compute_angles) * red2angle)
-
-    my_joint_right, _ = decouple(0.0,0.3,"right")
-    my_joint_left, _ = decouple(0.0,0.3,"left")
-
-    print(my_joint_right, my_joint_left)
+    print('net to real: %.4f, %.4f, %.4f, %.4f' % (convert_ankle_net_to_real(0.3, 0.3, 0.3, -0.3)))  # 4\5\10\11
+    print('real to net: %.4f, %.4f, %.4f, %.4f' % (convert_ankle_real_to_net(0.3431, 0.2473, 0.2473, 0.3431)))

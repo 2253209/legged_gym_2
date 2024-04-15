@@ -52,10 +52,10 @@ def get_euler_xyz_tensor(quat):
 class Zq12Robot(LeggedRobot):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
-        self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        for i in range(self.num_dofs):
-            self.target_joint_angles[i] = self.cfg.init_state.target_joint_angles[i]
-        self.target_joint_angles = self.target_joint_angles.unsqueeze(0)
+        # self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+        # for i in range(self.num_dofs):
+        #     self.target_joint_angles[i] = self.cfg.init_state.target_joint_angles[i]
+        # self.target_joint_angles = self.target_joint_angles.unsqueeze(0)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         self.init_position = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
         self.body_pos = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
@@ -72,14 +72,13 @@ class Zq12Robot(LeggedRobot):
         """ Computes observations
         """
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
+        self.dof_vel[:, 4:6] = 0.
+        self.dof_vel[:, 10:12] = 0.
         self.obs_buf = torch.cat((
-            # self.base_lin_vel * self.obs_scales.lin_vel,  # 3
-            # self.base_ang_vel  * self.obs_scales.ang_vel,  # 3
-            # self.projected_gravity,  # 1
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz,  # 3
             self.commands[:, :3] * self.commands_scale,  # 3
-            self.dof_pos * self.obs_scales.dof_pos,  # 12
+            (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12
             self.dof_vel * self.obs_scales.dof_vel,  # 12
             self.actions  # 12
             ), dim=-1)
@@ -172,7 +171,7 @@ class Zq12Robot(LeggedRobot):
         # yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
         # # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
         # return torch.exp(-yaw_roll * 100) - 1.0 * torch.norm(joint_diff, dim=1)
-        joint_diff = torch.sum((self.dof_pos - self.target_joint_angles)**2, dim=1)
+        joint_diff = torch.sum((self.dof_pos - self.default_dof_pos)**2, dim=1)
         imitate_reward = torch.exp(-7*joint_diff)  # positive reward, not the penalty
         return imitate_reward
 

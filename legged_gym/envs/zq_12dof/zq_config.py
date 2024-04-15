@@ -41,32 +41,33 @@ class Zq12Cfg(LeggedRobotCfg):
     class terrain(LeggedRobotCfg.terrain):
         mesh_type = 'plane'
         measure_heights = False
-        measured_points_x = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4,
-                             0.5]  # 1mx1m rectangle (without center line)
+        measured_points_x = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]  # 1mx1m rectangle (without center line)
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.830]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.83]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.1,
             'JOINT_Y2': 0.0,
-            'JOINT_Y3': 0.28,
+            'JOINT_Y3': 0.21,
             'JOINT_Y4': -0.53,
-            'JOINT_Y5': 0.29,
+            'JOINT_Y5': 0.32,
             'JOINT_Y6': 0.1,
 
             'JOINT_Z1': 0.1,
             'JOINT_Z2': 0.0,
-            'JOINT_Z3': 0.28,
+            'JOINT_Z3': 0.21,
             'JOINT_Z4': -0.53,
-            'JOINT_Z5': 0.29,
+            'JOINT_Z5': 0.32,
             'JOINT_Z6': -0.1,
         }
-        target_joint_angles = [-0.1, 0.0, 0.28, -0.53, 0.29, 0.1,
-                               0.1, 0.0, 0.28, -0.53, 0.29, -0.1]
+        # target_joint_angles = [-0.1, 0.0, 0.21, -0.53, 0.29, 0.1,
+        #                        0.1, 0.0, 0.21, -0.53, 0.29, -0.1]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
+        # stiffness = {'JOINT': 0.0}  # [N*m/rad]
+        # damping = {'JOINT': 0.0}
         stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 200.0, 'JOINT_Y6': 200.0,
                      'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 200.0, 'JOINT_Z6': 200.0,
                      }  # [N*m/rad]
@@ -174,6 +175,6 @@ class Zq12CfgPPO(LeggedRobotCfgPPO):
         max_iterations = 30000
         # logging
         save_interval = 400
-        checkpoint = '8400'
+        # checkpoint = '8400'
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01

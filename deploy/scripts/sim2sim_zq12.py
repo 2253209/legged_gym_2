@@ -23,8 +23,8 @@ class Sim2simCfg(Zq12Cfg):
 
     class sim(Zq12Cfg.sim):
         sim_duration = 60.0
-        # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
-        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/urdf/zq_box_foot.urdf'
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
+        # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/urdf/zq_box_foot.urdf'
 
 
 def quaternion_to_euler_array(quat):
@@ -86,10 +86,11 @@ def run_mujoco(policy, cfg: Sim2simCfg):
     model.opt.timestep = cfg.sim.dt
     data = mujoco.MjData(model)
     action_startup = np.zeros(cfg.env.num_actions, dtype=np.float32)
-
+    default_joint_pos = np.zeros(cfg.env.num_actions, dtype=np.float32)
     for index, value in enumerate(cfg.init_state.default_joint_angles.values()):
         action_startup[index] = value * (1 // cfg.control.action_scale)
-        data.qpos[7 + index] = value
+        default_joint_pos[index] = value
+    data.qpos[7:] = default_joint_pos[:]
 
     kps = np.zeros(cfg.env.num_actions, dtype=np.float32)
     kds = np.zeros(cfg.env.num_actions, dtype=np.float32)
@@ -134,7 +135,7 @@ def run_mujoco(policy, cfg: Sim2simCfg):
                 obs[0, 7] = cfg.cmd.vy * cfg.normalization.obs_scales.lin_vel
                 obs[0, 8] = cfg.cmd.dyaw * cfg.normalization.obs_scales.ang_vel
 
-                obs[0, 9:21] = q * cfg.normalization.obs_scales.dof_pos
+                obs[0, 9:21] = (q - default_joint_pos) * cfg.normalization.obs_scales.dof_pos
                 obs[0, 21:33] = dq * cfg.normalization.obs_scales.dof_vel
                 obs[0, 33:45] = action
 
@@ -171,6 +172,7 @@ def run_mujoco(policy, cfg: Sim2simCfg):
             # Generate PD control
             tau = pd_control(target_q, q, kps,
                              target_dq, dq, kds)  # Calc torques
+            print('target_q=%.4f, q=%.4f, tau==%.4f,' % (target_q[0], q[0], tau[0]))
             # tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit)  # Clamp torques
             data.ctrl = tau
             # mujoco.mj_resetData(model, data)
@@ -194,6 +196,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_0.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_1.pt'
     policy = torch.jit.load(args.load_model)
     run_mujoco(policy, Sim2simCfg())
