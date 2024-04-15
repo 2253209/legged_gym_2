@@ -170,9 +170,9 @@ class Zq12CfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
         experiment_name = 'zq12'
-        max_iterations = 3000
+        max_iterations = 30000
         # logging
-        save_interval = 100
+        save_interval = 1000
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01

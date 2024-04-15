@@ -23,6 +23,7 @@ class Sim2simCfg(Zq12Cfg):
 
     class sim(Zq12Cfg.sim):
         sim_duration = 60.0
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
 
 
 def quaternion_to_euler_array(quat):
@@ -80,7 +81,7 @@ def run_mujoco(policy, cfg: Sim2simCfg):
     Returns:
         None
     """
-    model = mujoco.MjModel.from_xml_path(cfg.asset.file)
+    model = mujoco.MjModel.from_xml_path(cfg.sim.file)
     model.opt.timestep = cfg.sim.dt
     data = mujoco.MjData(model)
     action_startup = np.zeros(cfg.env.num_actions, dtype=np.float32)
@@ -152,8 +153,8 @@ def run_mujoco(policy, cfg: Sim2simCfg):
                 # for i in range(cfg.env.frame_stack):
                 #     policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
 
-                # action[:] = policy(torch.tensor(obs))[0].detach().numpy()
-                action[:] = action_startup[:]
+                action[:] = policy(torch.tensor(obs))[0].detach().numpy()
+                # action[:] = action_startup[:]
 
                 if count_lowlevel < count_max_merge:
                     # print(f'{count_lowlevel} action[2]={action[2]}', end='')
