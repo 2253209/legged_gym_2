@@ -46,7 +46,7 @@ class Zq12Cfg(LeggedRobotCfg):
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.855]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.830]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.1,
             'JOINT_Y2': 0.0,
@@ -74,7 +74,7 @@ class Zq12Cfg(LeggedRobotCfg):
                    'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 4.0, 'JOINT_Z6': 4.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.1
+        action_scale = 0.05
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 
@@ -123,9 +123,9 @@ class Zq12Cfg(LeggedRobotCfg):
         soft_dof_vel_limit = 0.9
         soft_torque_limit = 0.9
         max_contact_force = 300.
-        only_positive_rewards = False
-        base_height_target = 0.8
-        tracking_sigma = 0.10
+        only_positive_rewards = True
+        base_height_target = 0.83
+        tracking_sigma = 0.15
         class scales(LeggedRobotCfg.rewards.scales):
             # termination = -200.
             # tracking_ang_vel = 1.0
@@ -139,7 +139,7 @@ class Zq12Cfg(LeggedRobotCfg):
             # ang_vel_xy = -0.0
             # feet_contact_forces = -0.
 
-            termination = -200.  # 4. 不倒
+            termination = -5.  # 4. 不倒
             tracking_lin_vel = 1.0  # 6. 奖励速度为0
             tracking_ang_vel = 1.0
             lin_vel_z = -0.0
@@ -161,7 +161,7 @@ class Zq12Cfg(LeggedRobotCfg):
             action_rate = -0.
             stand_still = -0.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
             no_fly = 0.0  # 2. 奖励：两脚都在地上，有一定压力
-            target_joint_pos = 1.0  # 3. 惩罚 身体关节角度 偏离
+            target_joint_pos = 2.0  # 3. 惩罚 身体关节角度 偏离
             # body_feet_dist = -1.0
 
 
@@ -174,6 +174,6 @@ class Zq12CfgPPO(LeggedRobotCfgPPO):
         max_iterations = 30000
         # logging
         save_interval = 400
-
+        checkpoint = '8400'
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01

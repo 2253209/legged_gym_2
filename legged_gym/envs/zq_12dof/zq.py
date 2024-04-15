@@ -173,7 +173,7 @@ class Zq12Robot(LeggedRobot):
         # # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
         # return torch.exp(-yaw_roll * 100) - 1.0 * torch.norm(joint_diff, dim=1)
         joint_diff = torch.sum((self.dof_pos - self.target_joint_angles)**2, dim=1)
-        imitate_reward = torch.exp(-10*joint_diff)  # positive reward, not the penalty
+        imitate_reward = torch.exp(-7*joint_diff)  # positive reward, not the penalty
         return imitate_reward
 
     def _reward_body_feet_dist(self):
