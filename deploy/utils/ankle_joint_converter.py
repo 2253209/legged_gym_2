@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 # 逆运动学
@@ -118,7 +120,7 @@ def forward_kinematics(theta_ref,leg='right'or'left'):
     s_11 = np.array([0, 1, 0])  # A1点单位方向向量
     s_21 = np.array([0, 1, 0])  # A2点单位方向向量
     l_bar = 45  # A1B1
-    if leg == 'left':
+    if leg == 'right':
         l_rod1 = 216  # B1C1
         l_rod2 = 120  # B2C2
         l_spacing1 = 47.9
@@ -131,21 +133,30 @@ def forward_kinematics(theta_ref,leg='right'or'left'):
 
     l_rod = [l_rod1, l_rod2]
     l_spacing = [l_spacing1, l_spacing2]
-    angle2rad = 1 / 180 * np.pi
+    # angle2rad = 1 / 180 * np.pi
     f_error = np.array([10, 10])
     x_c_k = np.array([0, 0])
-    while np.linalg.norm(f_error) > 1e-6:
+    i = 0
+    while np.linalg.norm(f_error) > 1e-3:
         _, _, r_C, r_bar, r_rod, THETA_k = inverse_kinematics(l_bar, l_rod, l_spacing, x_c_k[0], x_c_k[1])
         J_c_k = jacobian(r_C, r_bar, r_rod, x_c_k[1], s_11, s_21)
         f_ik = np.block([THETA_k[0], THETA_k[1]])
         x_c_k = x_c_k - np.linalg.pinv(J_c_k) @ (f_ik - theta_ref)
         f_error = f_ik - theta_ref
-    return x_c_k
+        i += 1
+        # if i > 10:
+        #     print(i, time.time())
+        # if i > 20:
+        #     raise ValueError("！！！forward_kinematics Excessive loop iterations.！！！")
+
+        # print(f'{i}!!! f_ik={f_ik} f_error={f_error} ')
+    # print(f'final:f_error={f_error}')
+    return x_c_k   # / angle2rad
 
 # 解耦
 def decouple(roll,pitch,leg='right'or'left'):
     my_l_bar = 45  # A1B1
-    if leg == 'left':
+    if leg == 'right':
         my_l_rod1 = 216  # B1C1
         my_l_rod2 = 120  # B2C2
         my_l_spacing1 = 47.9
@@ -171,13 +182,13 @@ def decouple(roll,pitch,leg='right'or'left'):
 def convert_ankle_net_to_real(p1, p2, p3, p4):  # 4/5/10/11
     joint_right, _ = decouple(p2, p1, "right")
     joint_left, _ = decouple(p4, p3, "left")
-    return joint_right[0], -joint_right[1], -joint_left[0], joint_left[1]  # 4\5\10\11
+    return joint_right[0], -joint_right[1], -joint_left[1], joint_left[0]  # 4\5\10\11
 
 
 def convert_ankle_real_to_net(p1, p2, p3, p4):  # 4\5\10\11
-    joint_right = forward_kinematics(np.array([p1, p2]), leg='right')
-    joint_left = forward_kinematics(np.array([p3, p4]), leg='left')
-    return joint_right[1], joint_right[0], joint_left[1], joint_left[0]
+    ori_right = forward_kinematics(np.array([p1, -p2]), leg='right')
+    ori_left = forward_kinematics(np.array([-p4, p3]), leg='left')
+    return ori_right[1], ori_right[0], -ori_left[1], -ori_left[0]
 
 
 if __name__ == '__main__':
@@ -199,6 +210,17 @@ if __name__ == '__main__':
     # my_joint_left, _ = decouple(0.0,0.3,"left")
     #
     # print(my_joint_right, my_joint_left)
+    arr = np.array([
+        [0.15964794158935547, -0.10090065002441406, -1.194972038269043, -0.01621246337890625],
+        [-0.68, 0.69, 0.69, -0.68],
+        [0.6, 0.3, 0.4, 0.40],
+        [-0.4, -0.4, -0.6, -0.3],
 
-    print('net to real: %.4f, %.4f, %.4f, %.4f' % (convert_ankle_net_to_real(0.3, 0.3, 0.3, -0.3)))  # 4\5\10\11
-    print('real to net: %.4f, %.4f, %.4f, %.4f' % (convert_ankle_real_to_net(0.3431, 0.2473, 0.2473, 0.3431)))
+    ])
+    for x in arr:
+        o1, o2, o3, o4 = convert_ankle_real_to_net(x[0], x[1], x[2], x[3])  # 电机角度——脚板姿态 4\5\10\11
+        j1, j2, j3, j4 = convert_ankle_net_to_real(o1, o2, o3, o4)          # 脚板姿态——电机角度 4\5\10\11
+        print('原始电机角度: %.4f, %.4f, %.4f, %.4f' % (x[0], x[1], x[2], x[3]))
+        print('电机转关节: %.4f, %.4f, %.4f, %.4f' % (o1, o2, o3, o4))
+        print('关节转电机: %.4f, %.4f, %.4f, %.4f' % (j1, j2, j3, j4))
+        print('----------------')

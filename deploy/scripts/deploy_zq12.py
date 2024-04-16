@@ -14,7 +14,7 @@ import lcm
 from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
 from deploy.utils.act_gen import ActionGenerator
-from deploy.utils.ankle_joint_converter import decouple, forward_kinematics
+from deploy.utils.ankle_joint_converter import convert_ankle_real_to_net, convert_ankle_net_to_real
 from deploy.utils.logger import SimpleLogger, get_title_81
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
@@ -52,11 +52,12 @@ class Deploy:
         self.log_path = path
 
     def publish_action(self, action, kp, kd):
+        # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
+        action[4], action[5], action[10], action[11] = convert_ankle_net_to_real(action[4], action[5], action[10], action[11])
+
         command_for_robot = pd_targets_lcmt()
 
         command_for_robot.q_des = action
-        command_for_robot.q_des[10] = -action[10]  # 左脚长电机，在输出给机器人的时候，才将脚部电机的值转换成真实正负号
-        command_for_robot.q_des[11] = -action[11]  # 左脚短电机
         command_for_robot.qd_des = np.zeros(self.cfg.env.num_actions)
         command_for_robot.kp = kp
         command_for_robot.kd = kd
@@ -81,7 +82,6 @@ class Deploy:
         omega = es.omegaBody[[0, 1, 2]].astype(np.double)
         # gvec = r.apply(np.array([0., 0., -1.]), inverse=True).astype(np.double)
         eu_ang = quaternion_to_euler_array(quat)
-
         return q, dq, eu_ang, omega
 
     def combine_obs(self, obs, omega, eu_ang, q, dq, action):
@@ -129,6 +129,7 @@ class Deploy:
         action = np.zeros(self.cfg.env.num_actions, dtype=np.double)
         action[:] = self.cfg.env.default_dof_pos[:]
         q_last = np.zeros_like(action)
+        q_zero = np.zeros_like(action)
         target_q = np.zeros_like(action)
 
         kp = np.zeros(self.cfg.env.num_actions)
@@ -167,10 +168,16 @@ class Deploy:
 
                 # Obtain an observation
                 q, dq, eu_ang, omega = self.get_obs(es)
-                # 脚踝电机位置转换
-                q[5] = -q[4]
-                q[11] = q[10]
-                q[10] = -q[10]
+                # 将观察得到的脚部电机位置转换成神经网络可以接受的ori位置
+                try:
+                    print(q[4], q[5], q[10], q[11] )
+                    q[4], q[5], q[10], q[11] = convert_ankle_real_to_net(q[4], q[5], q[10], q[11])
+                    q_last[:] = q[:]
+                except Exception as e:
+                    # print(q[4], q[5], q[10], q[11] )
+                    print(e)
+                    q[:] = q_last[:]
+
                 # 脚踝电机观测速度=0
                 dq[4:6] = 0.
                 dq[10:12] = 0.
@@ -182,7 +189,7 @@ class Deploy:
 
                 if key_comm.timestep == 0:
                     # action_last[:] = action[:]
-                    q_last[:] = q[:]
+                    q_zero[:] = q[:]
 
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机缓慢置于初始位置。
@@ -219,9 +226,6 @@ class Deploy:
                 #                  self.cfg.env.joint_limit_min,
                 #                  self.cfg.env.joint_limit_max)
                 # target_q[:] = action_scaled[:]
-
-                # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
-                self.convert_ankle_net_to_real(target_q)
                 target_q = np.clip(target_q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
 
                 # target_dq = np.zeros(self.cfg.env.num_actions, dtype=np.double)
