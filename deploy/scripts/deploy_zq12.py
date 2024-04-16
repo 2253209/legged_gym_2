@@ -101,8 +101,6 @@ class Deploy:
         obs[0, 21:33] = dq * self.cfg.normalization.obs_scales.dof_vel  # 10
         obs[0, 33:45] = action  # 10
 
-        obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
-
     def combine_total_obs(self, total_data, omega, eu_ang, q, dq, action, target_q):
         total_data[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
         total_data[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
@@ -168,6 +166,7 @@ class Deploy:
 
                 # Obtain an observation
                 q, dq, eu_ang, omega = self.get_obs(es)
+                q = np.clip(q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉比较大的值
                 # 将观察得到的脚部电机位置转换成神经网络可以接受的ori位置
                 try:
                     print(q[4], q[5], q[10], q[11] )
@@ -182,6 +181,8 @@ class Deploy:
                 dq[4:6] = 0.
                 dq[10:12] = 0.
                 self.combine_obs(obs, omega, eu_ang, q, dq, action)
+                obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
+
                 self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q)
 
                 # 将obs写入文件，在桌面
@@ -266,8 +267,8 @@ class DeployCfg:
         default_dof_pos = np.array([-0.1, 0.0, 0.21, -0.53, 0.32, 0.1,
                                    0.1, 0.0, 0.21, -0.53, 0.32, -0.1], dtype=np.float32)
 
-        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.9, -0.6, -0.5, -0.28, -1.15, -2.2, -0.9, -0.6], dtype=np.float32)
-        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.9, 0.6, 0.5, 0.28, 1.15, -0.05, 0.9, 0.6], dtype=np.float32)
+        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8, -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
+        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.8, 0.5, 0.5, 0.28, 1.15, -0.05, 0.5, 0.8], dtype=np.float32)
 
     class normalization:
         class obs_scales:

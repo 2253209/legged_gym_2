@@ -146,8 +146,8 @@ def forward_kinematics(theta_ref,leg='right'or'left'):
         i += 1
         # if i > 10:
         #     print(i, time.time())
-        # if i > 20:
-        #     raise ValueError("！！！forward_kinematics Excessive loop iterations.！！！")
+        if i > 10:
+            raise ValueError("！！！forward_kinematics Excessive loop iterations.！！！")
 
         # print(f'{i}!!! f_ik={f_ik} f_error={f_error} ')
     # print(f'final:f_error={f_error}')

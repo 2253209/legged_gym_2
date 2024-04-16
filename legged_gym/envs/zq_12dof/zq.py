@@ -65,16 +65,15 @@ class Zq12Robot(LeggedRobot):
         # actions[:, :] = self.default_dof_pos[0, :]
         # actions[:, 0:4] = self.default_dof_pos[0, 0:4]  # 4=action
         # actions[:, 5:10] = self.default_dof_pos[0, 5:10]  # 10=action
-        actions[:, 5] = self.default_dof_pos[0, 5]
-        actions[:, 11] = self.default_dof_pos[0, 11]
+        # actions[:, 11] = self.default_dof_pos[0, 11]
         return super().step(actions)
 
     def compute_observations(self):
         """ Computes observations
         """
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
-        self.dof_vel[:, 5] = 0.
-        self.dof_vel[:, 11] = 0.
+        self.dof_vel[:, 4:6] = 0.
+        self.dof_vel[:, 10:12] = 0.
         self.obs_buf = torch.cat((
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz,  # 3
