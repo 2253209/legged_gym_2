@@ -45,7 +45,7 @@ class Zq12Cfg(LeggedRobotCfg):
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.83]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.84]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.1,
             'JOINT_Y2': 0.0,
@@ -61,8 +61,8 @@ class Zq12Cfg(LeggedRobotCfg):
             'JOINT_Z5': 0.32,
             'JOINT_Z6': -0.1,
         }
-        # target_joint_angles = [-0.1, 0.0, 0.21, -0.53, 0.29, 0.1,
-        #                        0.1, 0.0, 0.21, -0.53, 0.29, -0.1]
+        target_joint_angles = [-0.1, 0.0, 0.21, -0.53, 0.32, 0.2,
+                               0.1, 0.0, 0.21, -0.53, 0.32, -0.2]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
@@ -113,8 +113,8 @@ class Zq12Cfg(LeggedRobotCfg):
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = False
         friction_range = [0.8, 1.2]
-        randomize_base_mass = False
-        added_mass_range = [-5., 5.]
+        randomize_base_mass = True
+        added_mass_range = [-1., 1.]
         push_robots = False
         push_interval_s = 15
         max_push_vel_xy = 1.

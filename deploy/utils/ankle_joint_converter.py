@@ -146,7 +146,7 @@ def forward_kinematics(theta_ref,leg='right'or'left'):
         i += 1
         # if i > 10:
         #     print(i, time.time())
-        if i > 10:
+        if i > 20:
             raise ValueError("！！！forward_kinematics Excessive loop iterations.！！！")
 
         # print(f'{i}!!! f_ik={f_ik} f_error={f_error} ')
@@ -211,11 +211,11 @@ if __name__ == '__main__':
     #
     # print(my_joint_right, my_joint_left)
     arr = np.array([
-        [0.15964794158935547, -0.10090065002441406, -1.194972038269043, -0.01621246337890625],
+        [1.06, -0.95, -0.95, 1.06],
         [-0.68, 0.69, 0.69, -0.68],
         [0.6, 0.3, 0.4, 0.40],
         [-0.4, -0.4, -0.6, -0.3],
-
+        [0.37, -0.27, -0.37, 0.27],
     ])
     for x in arr:
         o1, o2, o3, o4 = convert_ankle_real_to_net(x[0], x[1], x[2], x[3])  # 电机角度——脚板姿态 4\5\10\11

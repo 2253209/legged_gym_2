@@ -52,10 +52,10 @@ def get_euler_xyz_tensor(quat):
 class Zq12Robot(LeggedRobot):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
-        # self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        # for i in range(self.num_dofs):
-        #     self.target_joint_angles[i] = self.cfg.init_state.target_joint_angles[i]
-        # self.target_joint_angles = self.target_joint_angles.unsqueeze(0)
+        self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+        for i in range(self.num_dofs):
+            self.target_joint_angles[i] = self.cfg.init_state.target_joint_angles[i]
+        self.target_joint_angles = self.target_joint_angles.unsqueeze(0)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         self.init_position = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
         self.body_pos = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
@@ -82,6 +82,7 @@ class Zq12Robot(LeggedRobot):
             self.dof_vel * self.obs_scales.dof_vel,  # 12
             self.actions  # 12
             ), dim=-1)
+        print(self.base_euler_xyz[0])
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
             heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
@@ -104,14 +105,15 @@ class Zq12Robot(LeggedRobot):
         else:
             self.root_states[env_ids] = self.base_init_state
             self.root_states[env_ids, :3] += self.env_origins[env_ids]
-            # rpy = torch_rand_float(-0.1, 0.1, (len(env_ids), 3), device=self.device)
-            # for index, env_id in enumerate(env_ids):
-            #     self.root_states[env_id, 3:7] = quat_from_euler_xyz(rpy[index, 0], rpy[index, 1], rpy[index, 2])
-            #     self.init_position[env_id, 0:3] = self.root_states[env_id, 0:3]
-            #     self.init_position[env_id, 2] -= 0.1
-
+            rpy = torch_rand_float(-0.1, 0.1, (len(env_ids), 3), device=self.device)
+            for index, env_id in enumerate(env_ids):
+                self.root_states[env_id, 3:7] = quat_from_euler_xyz(rpy[index, 0], rpy[index, 1], rpy[index, 2])
+                # self.root_states[env_id, 3:7] = quat_from_euler_xyz(torch.as_tensor(0.0), torch.as_tensor(1.57), torch.as_tensor(0.0))
+                self.init_position[env_id, 0:3] = self.root_states[env_id, 0:3]
+                self.init_position[env_id, 2] -= 0.1
+        #
         # base velocities
-        # self.root_states[env_ids, 7:13] = torch_rand_float(-0.05, 0.05, (len(env_ids), 6), device=self.device) # [7:10]: lin vel, [10:13]: ang vel
+        self.root_states[env_ids, 7:13] = torch_rand_float(-0.05, 0.05, (len(env_ids), 6), device=self.device) # [7:10]: lin vel, [10:13]: ang vel
         if self.cfg.asset.fix_base_link:
             self.root_states[env_ids, 7:13] = 0
             self.root_states[env_ids, 2] += 1.8
@@ -171,7 +173,7 @@ class Zq12Robot(LeggedRobot):
         # yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
         # # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
         # return torch.exp(-yaw_roll * 100) - 1.0 * torch.norm(joint_diff, dim=1)
-        joint_diff = torch.sum((self.dof_pos - self.default_dof_pos)**2, dim=1)
+        joint_diff = torch.sum((self.dof_pos - self.target_joint_angles)**2, dim=1)
         imitate_reward = torch.exp(-7*joint_diff)  # positive reward, not the penalty
         return imitate_reward
 

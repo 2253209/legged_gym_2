@@ -169,11 +169,11 @@ class Deploy:
                 q = np.clip(q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉比较大的值
                 # 将观察得到的脚部电机位置转换成神经网络可以接受的ori位置
                 try:
-                    print(q[4], q[5], q[10], q[11] )
+                    # print(q[4], q[5], q[10], q[11] )
                     q[4], q[5], q[10], q[11] = convert_ankle_real_to_net(q[4], q[5], q[10], q[11])
                     q_last[:] = q[:]
                 except Exception as e:
-                    # print(q[4], q[5], q[10], q[11] )
+                    print(q[4], q[5], q[10], q[11])
                     print(e)
                     q[:] = q_last[:]
 
@@ -201,10 +201,11 @@ class Deploy:
 
                 elif key_comm.stepTest:
                     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
-                    # action[:] = np.array(act_gen.step()) / self.cfg.env.action_scale
-                    # kp[:] = self.cfg.robot_config.kps[:]
-                    # kd[:] = self.cfg.robot_config.kds[:]
-                    pass
+                    action[:] = 0.
+                    target_q[:] = 0.
+                    kp[:] = self.cfg.robot_config.kps_stand[:]
+                    kd[:] = self.cfg.robot_config.kds_stand[:]
+
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作
                     action = policy(torch.tensor(obs))[0].detach().numpy()
@@ -212,7 +213,8 @@ class Deploy:
 
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
-                    target_q = action * self.cfg.env.action_scale
+                    # target_q = action * self.cfg.env.action_scale
+                    target_q = action * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
 
                 else:
                     print('退出')
@@ -240,9 +242,9 @@ class Deploy:
                     self.publish_action(target_q, kp, kd)
                 elif key_comm.stepNet:
                     self.publish_action(target_q, kp, kd)
-                    # pass
                 else:
                     pass
+
                 key_comm.timestep += 1
 
         except KeyboardInterrupt:
@@ -259,7 +261,7 @@ class DeployCfg:
     class env:
         dt = 0.01
         num_single_obs = 45  # 3+3+3+10+10+10
-        action_scale = 0.1
+        action_scale = 0.05
         cycle_time = 1.0
         num_actions = 12
 
@@ -307,7 +309,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = '/home/qin/Desktop/legged_gym_2/logs/zq12/exported/policies/policy_1.pt'
+        args.load_model = '/home/qin/Desktop/legged_gym_2/logs/zq12/exported/policies/policy_yq.pt'
     policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot(policy)
