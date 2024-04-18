@@ -15,7 +15,7 @@ from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
 from deploy.utils.act_gen import ActionGenerator
 from deploy.utils.ankle_joint_converter import convert_ankle_real_to_net, convert_ankle_net_to_real
-from deploy.utils.logger import SimpleLogger, get_title_81
+from deploy.utils.logger import SimpleLogger, get_title_82
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
 
@@ -84,7 +84,7 @@ class Deploy:
         eu_ang = quaternion_to_euler_array(quat)
         return q, dq, eu_ang, omega
 
-    def combine_obs(self, obs, omega, eu_ang, q, dq, action):
+    def combine_obs(self, obs, omega, eu_ang, q, dq, action, sin_pos):
         # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
         # self.base_euler_xyz,  # 3
         # self.commands[:, :3] * self.commands_scale,  # 3
@@ -100,8 +100,10 @@ class Deploy:
         obs[0, 9:21] = (q - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
         obs[0, 21:33] = dq * self.cfg.normalization.obs_scales.dof_vel  # 10
         obs[0, 33:45] = action  # 10
+        obs[0, 45] = sin_pos[0, 0]
 
-    def combine_total_obs(self, total_data, omega, eu_ang, q, dq, action, target_q):
+
+    def combine_total_obs(self, total_data, omega, eu_ang, q, dq, action, target_q, sin_pos):
         total_data[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
         total_data[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
         total_data[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
@@ -110,9 +112,11 @@ class Deploy:
         total_data[0, 9:21] = (q - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
         total_data[0, 21:33] = dq * self.cfg.normalization.obs_scales.dof_vel  # 10
         total_data[0, 33:45] = action  # 10
+        total_data[0, 45] = sin_pos[0, 0]
         total_data[0, 45:57] = q - self.cfg.env.default_dof_pos
         total_data[0, 57:69] = dq
         total_data[0, 69:81] = target_q
+        total_data[0, 81] = sin_pos[0, 0]
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
         """
@@ -129,12 +133,13 @@ class Deploy:
         q_last = np.zeros_like(action)
         q_zero = np.zeros_like(action)
         target_q = np.zeros_like(action)
+        phase = torch.tensor([[0.]])
 
         kp = np.zeros(self.cfg.env.num_actions)
         kd = np.zeros(self.cfg.env.num_actions)
 
         obs = np.zeros((1, self.cfg.env.num_single_obs), dtype=np.float32)
-        total_data = np.zeros((1, 81), dtype=np.float32)  # 39+36
+        total_data = np.zeros((1, 82), dtype=np.float32)  # 39+36
 
         current_time = time.time()
 
@@ -144,11 +149,12 @@ class Deploy:
 
         key_comm = KeyCommand()
         key_comm.start()
+        count_total = 0
         count_max_merge = 100
 
         act_gen = ActionGenerator(self.cfg)
 
-        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_81())
+        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_82())
 
         try:
             for i in range(10):
@@ -163,6 +169,9 @@ class Deploy:
                 if key_comm.timestep % 100 == 0:
                     print(f'frq: {1 / frq} Hz count={key_comm.timestep}')
                 current_time = time.time()
+
+                phase[0, 0] = (key_comm.timestep * self.cfg.env.dt * self.cfg.env.step_freq) % 1.
+                sin_pos = torch.sin(2 * torch.pi * phase)
 
                 # Obtain an observation
                 q, dq, eu_ang, omega = self.get_obs(es)
@@ -180,13 +189,13 @@ class Deploy:
                 # 脚踝电机观测速度=0
                 dq[4:6] = 0.
                 dq[10:12] = 0.
-                self.combine_obs(obs, omega, eu_ang, q, dq, action)
+                self.combine_obs(obs, omega, eu_ang, q, dq, action, sin_pos)
                 obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
-                self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q)
+                self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q, sin_pos)
 
                 # 将obs写入文件，在桌面
-                sp_logger.save(total_data, key_comm.timestep, frq)  # total_obs.shape=75
+                sp_logger.save(total_data, count_total, frq)  # total_obs.shape=75
 
                 if key_comm.timestep == 0:
                     # action_last[:] = action[:]
@@ -248,6 +257,7 @@ class Deploy:
                     pass
 
                 key_comm.timestep += 1
+                count_total += 1
 
         except KeyboardInterrupt:
             print(f'用户终止。')
@@ -262,8 +272,9 @@ class DeployCfg:
 
     class env:
         dt = 0.01
-        num_single_obs = 45  # 3+3+3+10+10+10
-        action_scale = 0.05
+        step_freq = 1.5  # Hz
+        num_single_obs = 46  # 3+3+3+10+10+10+1
+        action_scale = 0.25
         cycle_time = 1.0
         num_actions = 12
 
@@ -311,7 +322,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = '/home/qin/Desktop/legged_gym_2/logs/zq12/exported/policies/policy_yq.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_tabu.pt'
     policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot(policy)

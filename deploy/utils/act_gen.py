@@ -114,3 +114,8 @@ if __name__ == '__main__':
         # ref_dof_pos[:, :] +=
         print(sin_pos[0], ref_dof_pos[0, [2, 3, 4, 8, 9, 10]])
         ref_count += 1
+
+    target_q = np.array([-1.5, 1.25, -5.15, 3.2, -2.5, 1.8, -3.5, 6.28, -7.15, 4.2, -9.8, -0.5], dtype=np.float32)
+    joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8, -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
+    joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.8, 0.5, 0.5, 0.28, 1.15, -0.05, 0.5, 0.8], dtype=np.float32)
+    print(np.clip(target_q, joint_limit_min, joint_limit_max))

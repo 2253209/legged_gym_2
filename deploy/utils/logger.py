@@ -2,12 +2,12 @@ from datetime import datetime
 import os
 
 
-def get_title_75():
+def get_title_46():
     i = 0
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(75):
+    for k in range(46):
         if k == 0:
             label = 'omg'
             i = 0
@@ -20,32 +20,27 @@ def get_title_75():
         elif k == 9:
             label = 'n_pos'
             i = 0
-        elif k == 19:
+        elif k == 21:
             label = 'n_vel'
             i = 0
-        elif k == 29:
+        elif k == 33:
             label = 'n_act'
             i = 0
-        elif k == 39:
-            label = 'r_pos'
+        elif k == 45:
+            label = 'sin'
             i = 0
-        elif k == 51:
-            label = 'r_vel'
-            i = 0
-        elif k == 63:
-            label = 'r_act'
-            i = 0
+
         title += f'{label}_{i},'
         i += 1
     return title
 
 
-def get_title_81():
+def get_title_82():
     i = 0
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(81):
+    for k in range(82):
         if k == 0:
             label = 'omg'
             i = 0
@@ -73,6 +68,9 @@ def get_title_81():
         elif k == 69:
             label = 'r_act'
             i = 0
+        elif k == 81:
+            label = 'sin'
+            i = 0
         title += f'{label}_{i},'
         i += 1
     return title
@@ -99,6 +97,7 @@ class SimpleLogger:
                 k += 1
 
             self.file.write('\n')
+            break
 
     def close(self):
         self.file.close()

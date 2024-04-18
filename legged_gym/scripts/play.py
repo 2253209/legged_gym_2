@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
+import time
 
 from legged_gym import LEGGED_GYM_ROOT_DIR
 import os
@@ -37,7 +38,7 @@ from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Log
 
 import numpy as np
 import torch
-
+from deploy.utils.logger import SimpleLogger, get_title_46
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -73,10 +74,17 @@ def play(args):
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
+    sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_46())
+    t1=0
+    t0=0
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
+
         obs, _, rews, dones, infos = env.step(actions.detach())
+        t1=time.time()
+        sloger.save(obs, i, t1 - t0)
+        t0 = t1
         if RECORD_FRAMES:
             if i % 2:
                 filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")
