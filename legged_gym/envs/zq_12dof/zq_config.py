@@ -115,8 +115,8 @@ class Zq12Cfg(LeggedRobotCfg):
         friction_range = [0.8, 1.2]
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
-        push_robots = False
-        push_interval_s = 15
+        push_robots = True
+        push_interval_s = 5
         max_push_vel_xy = 1.
 
     class rewards(LeggedRobotCfg.rewards):

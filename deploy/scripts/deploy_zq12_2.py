@@ -52,16 +52,11 @@ class Deploy:
         self.log_path = path
 
     def publish_action(self, action, kp, kd):
-        # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
-        action[4], action[5], action[10], action[11] = convert_ankle_net_to_real(action[4], action[5], action[10], action[11])
-
         command_for_robot = pd_targets_lcmt()
-
         command_for_robot.q_des = action
         command_for_robot.qd_des = np.zeros(self.cfg.env.num_actions)
         command_for_robot.kp = kp
         command_for_robot.kd = kd
-
         command_for_robot.tau_ff = np.zeros(self.cfg.env.num_actions)
         command_for_robot.se_contactState = np.zeros(4)
         command_for_robot.timestamp_us = int(time.time() * 10 ** 6)
@@ -84,35 +79,20 @@ class Deploy:
         eu_ang = quaternion_to_euler_array(quat)
         return q, dq, eu_ang, omega
 
-    def combine_obs(self, obs, omega, eu_ang, q, dq, action):
-        # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
-        # self.base_euler_xyz,  # 3
-        # self.commands[:, :3] * self.commands_scale,  # 3
-        # self.dof_pos * self.obs_scales.dof_pos,  # 10
-        # self.dof_vel * self.obs_scales.dof_vel,  # 10
-        # self.actions  # 10
+    def combine_obs_net(self, obs_net, omega, eu_ang, pos_net, vel_net, action_net):
+        obs_net[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
+        obs_net[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
+        obs_net[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
+        obs_net[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
+        obs_net[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
+        obs_net[0, 9:21] = (pos_net - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
+        obs_net[0, 21:33] = vel_net * self.cfg.normalization.obs_scales.dof_vel  # 10
+        obs_net[0, 33:45] = action_net  # 10
 
-        obs[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
-        obs[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
-        obs[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
-        obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
-        obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
-        obs[0, 9:21] = (q - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
-        obs[0, 21:33] = dq * self.cfg.normalization.obs_scales.dof_vel  # 10
-        obs[0, 33:45] = action  # 10
-
-    def combine_total_obs(self, total_data, omega, eu_ang, q, dq, action, target_q):
-        total_data[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
-        total_data[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
-        total_data[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
-        total_data[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
-        total_data[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
-        total_data[0, 9:21] = (q - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
-        total_data[0, 21:33] = dq * self.cfg.normalization.obs_scales.dof_vel  # 10
-        total_data[0, 33:45] = action  # 10
-        total_data[0, 45:57] = q - self.cfg.env.default_dof_pos
-        total_data[0, 57:69] = dq
-        total_data[0, 69:81] = target_q
+    def combine_obs_real(self, obs_real, pos_real, vel_real, action_real):
+        obs_real[0, 0:12] = pos_real
+        obs_real[0, 12:24] = vel_real
+        obs_real[0, 24:36] = action_real
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
         """
@@ -123,18 +103,23 @@ class Deploy:
 
 
     def run_robot(self, policy):
+        # 从真机获取和发送给真机的值
+        action_real = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+        pos_real = np.zeros_like(action_real)
+        vel_real = np.zeros_like(action_real)
+        obs_real = np.zeros((1, self.cfg.env.num_obs_real), dtype=np.float32)
 
-        action = np.zeros(self.cfg.env.num_actions, dtype=np.double)
-        action[:] = self.cfg.env.default_dof_pos[:]
-        q_last = np.zeros_like(action)
-        q_zero = np.zeros_like(action)
-        target_q = np.zeros_like(action)
+        # 从神经网络获取和发送给网络的值
+        action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+        pos_net = np.zeros_like(action_net)
+        vel_net = np.zeros_like(action_net)
+        obs_net = np.zeros((1, self.cfg.env.num_obs_net), dtype=np.float32)
+
+        pos_net_last = np.zeros_like(pos_real)
+        pos_real_0 = np.zeros_like(pos_real)
 
         kp = np.zeros(self.cfg.env.num_actions)
         kd = np.zeros(self.cfg.env.num_actions)
-
-        obs = np.zeros((1, self.cfg.env.num_single_obs), dtype=np.float32)
-        total_data = np.zeros((1, 81), dtype=np.float32)  # 39+36
 
         current_time = time.time()
 
@@ -146,13 +131,11 @@ class Deploy:
         key_comm.start()
         count_max_merge = 100
 
-        act_gen = ActionGenerator(self.cfg)
-
         sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_81())
 
         try:
             for i in range(10):
-                policy(torch.tensor(obs))[0].detach().numpy()
+                policy(torch.tensor(obs_net))[0].detach().numpy()
 
             while key_comm.listening:
                 c_delay = time.time() - current_time
@@ -164,85 +147,89 @@ class Deploy:
                     print(f'frq: {1 / frq} Hz count={key_comm.timestep}')
                 current_time = time.time()
 
-                # Obtain an observation
-                q, dq, eu_ang, omega = self.get_obs(es)
-                q = np.clip(q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉比较大的值
-                # 将观察得到的脚部电机位置转换成神经网络可以接受的ori位置
+                # 1. 从真实机器人获取观察值 Obtain an observation from real robot
+                pos_real, vel_real, eu_ang, omega = self.get_obs(es)
+
+                # 2.1 POS转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
                     # print(q[4], q[5], q[10], q[11] )
-                    q[4], q[5], q[10], q[11] = convert_ankle_real_to_net(q[4], q[5], q[10], q[11])
-                    q_last[:] = q[:]
+                    pos_net[:] = pos_real[:]
+                    pos_net[4], pos_net[5], pos_net[10], pos_net[11] = (
+                        convert_ankle_real_to_net(pos_real[4], pos_real[5], pos_real[10], pos_real[11]))
+                    pos_net = np.clip(pos_net, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
+                    pos_net_last[:] = pos_net[:]
                 except Exception as e:
-                    print(q[4], q[5], q[10], q[11])
+                    print(pos_real[4], pos_real[5], pos_real[10], pos_real[11])
                     print(e)
-                    q[:] = q_last[:]
+                    pos_net[:] = pos_net_last[:]
 
-                # 脚踝电机观测速度=0
-                dq[4:6] = 0.
-                dq[10:12] = 0.
-                self.combine_obs(obs, omega, eu_ang, q, dq, action)
-                obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
+                # 2.2 VEL转换: 将脚踝电机观测速度=0
+                vel_net[:] = vel_real[:]
+                vel_net[4:6] = 0.
+                vel_net[10:12] = 0.
 
-                self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q)
+                # 3.1 组合真机的OBS, 其中action_real是上一帧的关节目标位置,p和v都是未经缩放的.
+                self.combine_obs_real(obs_real, pos_real, vel_real, action_real)
 
-                # 将obs写入文件，在桌面
-                sp_logger.save(total_data, key_comm.timestep, frq)  # total_obs.shape=75
+                # 3.2 组合给神经网络的OBS, 其中action_net是上一帧神经网络生成的动作.其他值都经过缩放
+                self.combine_obs_net(obs_net, omega, eu_ang, pos_net, vel_net, action_net)
+                # 3.3 !!!限制OBS可能出现的大数值!!!
+                obs = np.clip(obs_net, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
+                # 3.4 将obs写入文件，在logs/dep_log/下
+                sp_logger.save(np.concatenate((obs_net, obs_real), axis=1), key_comm.timestep, frq)  # total_obs.shape=75
+
+                # 4.1 当操纵者改变模式时,获取当前关节位置做1秒插值
                 if key_comm.timestep == 0:
-                    # action_last[:] = action[:]
-                    q_zero[:] = q[:]
+                    pos_real_0[:] = pos_real[:]
 
+                # 4.2 操纵者改变模式
                 if key_comm.stepCalibrate:
-                    # 当状态是“静态归零模式”时：将所有电机缓慢置于初始位置。
-                    action[:] = self.cfg.env.default_dof_pos[:] * (1.0 // self.cfg.env.action_scale)
-                    target_q[:] = self.cfg.env.default_dof_pos[:]
+                    # 当状态是“静态归零模式”时：将所有电机设置初始姿态。
+                    action_net[:] = self.cfg.env.default_dof_pos[:] * (1.0 // self.cfg.env.action_scale)
+                    action_real[:] = self.cfg.env.default_dof_pos[:]
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepTest:
                     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
-                    action[:] = 0.
-                    target_q[:] = 0.
+                    action_net[:] = 0.
+                    action_real[:] = 0.
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepNet:
-                    # 当状态是“神经网络模式”时：使用神经网络输出动作
-                    action = policy(torch.tensor(obs))[0].detach().numpy()
-                    # print(f'net[2]={a_temp[2]} ', end='')
-
+                    # 当状态是“神经网络模式”时：使用神经网络输出动作。
+                    action_net = policy(torch.tensor(obs_net))[0].detach().numpy()
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
-                    # target_q = action * self.cfg.env.action_scale
-                    target_q = action * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
 
+                    # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
+                    action_real = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    print(action_real)
                 else:
                     print('退出')
 
-                # 插值
+                # 5.1 插值平滑输出
                 if key_comm.timestep < count_max_merge:
-                    target_q[:] = (q_last[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                                 + target_q[:] / count_max_merge * (key_comm.timestep + 1))
+                    action_real[:] = (pos_real_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
+                                      + action_real[:] / count_max_merge * (key_comm.timestep + 1))
 
-                # print(f'action[2]={action[2]}, action_scaled[2]={action_scaled[2]},')
-                # action = np.clip(action,
-                #                  self.cfg.env.joint_limit_min,
-                #                  self.cfg.env.joint_limit_max)
-                # target_q[:] = action_scaled[:]
-                target_q = np.clip(target_q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
+                # 5.2 将神经网络输出的踝部关节角度,转换成实际电机指令
+                action_real[4], action_real[5], action_real[10], action_real[11] = (
+                    convert_ankle_net_to_real(action_real[4], action_real[5], action_real[10], action_real[11]))
 
-                # target_dq = np.zeros(self.cfg.env.num_actions, dtype=np.double)
-                # Generate PD control
-                # tau = self.pd_control(target_q, q, self.cfg.robot_config.kps,
-                #                       target_dq, dq, self.cfg.robot_config.kds)  # Calc torques
-                # tau = np.clip(tau, -self.cfg.robot_config.tau_limit, self.cfg.robot_config.tau_limit)  # Clamp torques
+                action_real = np.clip(action_real,
+                                      self.cfg.env.joint_limit_min,
+                                      self.cfg.env.joint_limit_max)
 
-                # !!!!!!!! send target_q to lcm
+                # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
-                    self.publish_action(target_q, kp, kd)
-                    # pass
+                    self.publish_action(action_real, kp, kd)
+                elif key_comm.stepTest:
+                    pass
                 elif key_comm.stepNet:
-                    self.publish_action(target_q, kp, kd)
+                    self.publish_action(action_real, kp, kd)
                     # pass
                 else:
                     pass
@@ -262,7 +249,8 @@ class DeployCfg:
 
     class env:
         dt = 0.01
-        num_single_obs = 45  # 3+3+3+10+10+10
+        num_obs_real = 36  # 12+12+12
+        num_obs_net = 45  # 3+3+3+12+12+12
         action_scale = 0.05
         cycle_time = 1.0
         num_actions = 12
@@ -311,7 +299,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = '/home/qin/Desktop/legged_gym_2/logs/zq12/exported/policies/policy_yq.pt'
+        args.load_model = '/home/qin/Desktop/legged_gym_2/logs/zq12/exported/policies/policy_yq2.pt'
     policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot(policy)

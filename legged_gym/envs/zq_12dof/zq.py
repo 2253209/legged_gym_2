@@ -82,7 +82,7 @@ class Zq12Robot(LeggedRobot):
             self.dof_vel * self.obs_scales.dof_vel,  # 12
             self.actions  # 12
             ), dim=-1)
-        print(self.base_euler_xyz[0])
+        # print(self.base_euler_xyz[0])
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
             heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
