@@ -52,35 +52,44 @@ def get_euler_xyz_tensor(quat):
 class Zq12Robot(LeggedRobot):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
-        self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        for i in range(self.num_dofs):
-            self.target_joint_angles[i] = self.cfg.init_state.target_joint_angles[i]
-        self.target_joint_angles = self.target_joint_angles.unsqueeze(0)
+        # self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+        # for i in range(self.num_dofs):
+        #     self.target_joint_angles[i] = self.cfg.init_state.target_joint_angles[i]
+        # self.target_joint_angles = self.target_joint_angles.unsqueeze(0)
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         self.init_position = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
         self.body_pos = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
         self.reset_buf2 = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
+        self.ref_dof_pos = torch.zeros_like(self.dof_pos)  # 步态生成器-生成的参考姿势
+        self.ref_count = torch.zeros((self.num_envs, 1), device=self.device, dtype=torch.long)  # 步态生成器--计数器
+        self.switch_step_or_stand = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)  # cmd较小不需要步态的（0,1,1,0...,1,0）
+        self.sin_pos = torch.zeros((self.num_envs, 1), device=self.device, dtype=torch.long)  # 每个env当前步态的sin相位。如果步频变化，则可以从这里开始。
+
 
     def step(self, actions):
         # actions[:, :] = self.default_dof_pos[0, :]
         # actions[:, 0:4] = self.default_dof_pos[0, 0:4]  # 4=action
         # actions[:, 5:10] = self.default_dof_pos[0, 5:10]  # 10=action
         # actions[:, 11] = self.default_dof_pos[0, 11]
+        # actions[:, :] = self.ref_dof_pos[:, :] // self.cfg.control.action_scale
+        self.ref_count += 1
+        self.compute_reference_states()
         return super().step(actions)
 
     def compute_observations(self):
         """ Computes observations
         """
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
-        self.dof_vel[:, 4:6] = 0.
-        self.dof_vel[:, 10:12] = 0.
+        # self.dof_vel[:, 4:6] = 0.
+        # self.dof_vel[:, 10:12] = 0.
         self.obs_buf = torch.cat((
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz,  # 3
             self.commands[:, :3] * self.commands_scale,  # 3
             (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12
             self.dof_vel * self.obs_scales.dof_vel,  # 12
-            self.actions  # 12
+            self.actions,  # 12
+            self.sin_pos   # 1
             ), dim=-1)
         # print(self.base_euler_xyz[0])
         # add perceptive inputs if not blind
@@ -143,6 +152,7 @@ class Zq12Robot(LeggedRobot):
         noise_vec[9:21] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos  # 0.01 * 1 * 1. = 0.01
         noise_vec[21:33] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel  # 1.5 * 1 * 0.05 = 0.075
         noise_vec[33:45] = 0.  # previous actions
+        noise_vec[45] = 0.  # sin
         # if self.cfg.terrain.measure_heights:
         #     noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec
@@ -151,6 +161,50 @@ class Zq12Robot(LeggedRobot):
         super().check_termination()
         self.reset_buf2 = self.root_states[:, 2] < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
         self.reset_buf |= self.reset_buf2
+
+    def _resample_commands(self, env_ids):
+        # 在reset_index和episode_length_buf==cfg.commands.resampling_time的时候，重新设定指令
+        super()._resample_commands(env_ids)
+        # set small commands to zero
+        stand_ids = (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
+        self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
+        # 在这里重置重设指令的步态生成器的初始计数值
+        self.ref_count[env_ids] = 0
+        # 设置所有env的正弦生成标志，如果cmd = 0则不生成正弦步态。
+        # self.switch_step_or_stand[:] = 1
+        # self.switch_step_or_stand[:] *= torch.norm(self.commands[:, :2], dim=1) > 0.2  # 1=step, 0=stand
+
+    def compute_reference_states(self):
+        phase = (self.ref_count * self.dt * self.cfg.commands.step_freq) % 1.
+
+        self.sin_pos = torch.sin(2 * torch.pi * phase)
+        sin_pos_l = self.sin_pos.clone()
+        sin_pos_r = self.sin_pos.clone()
+
+        scale_1 = self.cfg.commands.step_joint_offset
+        scale_2 = 1.8 * scale_1
+        scale_3 = scale_2 - scale_1
+
+        self.ref_dof_pos[:, :] = 0.
+        # right foot stance phase set to default joint pos
+        sin_pos_r[sin_pos_r < 0] = 0
+        self.ref_dof_pos[:, 2] = sin_pos_r[:, 0] * scale_1
+        self.ref_dof_pos[:, 3] = -sin_pos_r[:, 0] * scale_2
+        self.ref_dof_pos[:, 4] = sin_pos_r[:, 0] * scale_3
+        # left foot stance phase set to default joint pos
+        sin_pos_l[sin_pos_l > 0] = 0
+        self.ref_dof_pos[:, 8] = -sin_pos_l[:, 0] * scale_1
+        self.ref_dof_pos[:, 9] = sin_pos_l[:, 0] * scale_2
+        self.ref_dof_pos[:, 10] = -sin_pos_l[:, 0] * scale_3
+
+        self.ref_dof_pos[:, :] += self.default_dof_pos[0, :]
+        # 双足支撑相位
+        # self.ref_dof_pos[torch.abs(self.sin_pos[:, 0]) < 0.1, :] = 0. + self.default_dof_pos[0, :]
+
+        # 如果cmd很小，姿态一直为默认姿势，sin相位也为0
+        # self.ref_dof_pos[self.switch_step_or_stand == 0, :] = 0. + self.default_dof_pos[0, :]
+        # print(self.ref_count[0], phase[0], self.sin_pos[0], self.ref_dof_pos[0, [2, 3, 4, 8, 9, 10]])
+        # print(self.sin_pos[0, 0], self.ref_dof_pos[0, :])
 
     # ------------------------ rewards --------------------------------------------------------------------------------
 
@@ -165,17 +219,20 @@ class Zq12Robot(LeggedRobot):
         Calculates the reward for keeping joint positions close to default positions, with a focus
         on penalizing deviation in yaw and roll directions. Excludes yaw and roll from the main penalty.
         """
-        # joint_diff = self.dof_pos - self.default_joint_pd_target
-        # joint_diff = self.dof_pos - self.target_joint_angles
-        # left_yaw_roll = joint_diff[:, :2]
-        # right_yaw_roll = joint_diff[:, 6: 8]
-        # yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
-        # yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        # # return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
-        # return torch.exp(-yaw_roll * 100) - 1.0 * torch.norm(joint_diff, dim=1)
-        joint_diff = torch.sum((self.dof_pos - self.target_joint_angles)**2, dim=1)
+        # joint_diff = torch.sum((self.dof_pos - self.target_joint_angles)**2, dim=1)
+        joint_diff = torch.sum((self.dof_pos - self.ref_dof_pos) ** 2, dim=1)
         imitate_reward = torch.exp(-7*joint_diff)  # positive reward, not the penalty
         return imitate_reward
+
+    def _reward_tracking_lin_x_vel(self):
+        # Tracking of linear velocity commands (xy axes)
+        lin_vel_error = torch.square(self.commands[:, 0] - self.base_lin_vel[:, 0])
+        return torch.exp(-lin_vel_error / self.cfg.rewards.tracking_sigma)
+
+    def _reward_tracking_lin_y_vel(self):
+        # Tracking of linear velocity commands (xy axes)
+        lin_vel_error = torch.square(self.commands[:, 1] - self.base_lin_vel[:, 1])
+        return torch.exp(-lin_vel_error / self.cfg.rewards.tracking_sigma)
 
     def _reward_body_feet_dist(self):
         # Penalize body root xy diff feet xy

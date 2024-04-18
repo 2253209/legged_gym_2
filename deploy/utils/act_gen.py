@@ -84,3 +84,33 @@ class ActionGenerator:
         # delay = torch.rand((self.num_envs, 1), device=self.device)
         # actions = (1 - delay) * actions + delay * self.actions
         return actions
+
+
+if __name__ == '__main__':
+    ref_dof_pos = torch.zeros((1, 12), dtype=torch.float, device='cpu', requires_grad=False)  # 步态生成器-生成的参考姿势
+    ref_count = torch.zeros(1, device='cpu', dtype=torch.long)  # 步态生成器--计数器
+    for i in range(200):
+
+        phase = (ref_count * 0.01 / 0.66) % 1.
+        print(i, phase, end='')
+        sin_pos = torch.sin(2 * torch.pi * phase)
+        sin_pos_r = sin_pos.clone()
+        sin_pos_l = sin_pos.clone()
+        scale_1 = 0.3
+        scale_2 = 2 * scale_1
+
+
+        sin_pos_r[sin_pos_r < 0] = 0
+        ref_dof_pos[:, 2] = sin_pos_r * scale_1 + 0.
+        ref_dof_pos[:, 3] = -sin_pos_r * scale_2 + 0.
+        ref_dof_pos[:, 4] = sin_pos_r * scale_1 + 0.
+        # left foot stance phase set to default joint pos
+        sin_pos_l[sin_pos_l > 0] = 0
+        ref_dof_pos[:, 8] = -sin_pos_l * scale_1 + 0.
+        ref_dof_pos[:, 9] = sin_pos_l * scale_2 + 0.
+        ref_dof_pos[:, 10] = -sin_pos_l * scale_1 + 0.
+
+        ref_dof_pos[torch.abs(sin_pos) < 0.1, :] = 0.
+        # ref_dof_pos[:, :] +=
+        print(sin_pos[0], ref_dof_pos[0, [2, 3, 4, 8, 9, 10]])
+        ref_count += 1
