@@ -159,7 +159,7 @@ class Zq12Cfg(LeggedRobotCfg):
             base_height = -0.0  # 1.奖励高度？惩罚高度方差
             feet_air_time = 0.
             collision = -0.1
-            dof_pos_limits = -0.
+            dof_pos_limits = -1.  # 让各个关节不要到达最大位置
             #
             feet_stumble = -0.0
             feet_contact_forces = -0.

@@ -166,14 +166,15 @@ def forward_kinematics(theta_ref, leg='right' or 'left'):
     # angle2rad = 1 / 180 * np.pi
     f_error = np.array([10, 10])
     x_c_k = np.array([0, 0])
+    j_c_k = np.zeros((2, 2), dtype=np.float32)
     i = 0
     while np.linalg.norm(f_error) > 1e-6:
         _, _, r_C, r_bar, r_rod, THETA_k = inverse_kinematics(l_bar, l_rod, l_spacing, x_c_k[0], x_c_k[1], leg)
         J_c_k = jacobian(r_C, r_bar, r_rod, x_c_k[1], s_11, s_21)
         f_ik = np.block([THETA_k[0], THETA_k[1]])
         x_c_k_pre = x_c_k
-        x_c_k = x_c_k - np.linalg.pinv(J_c_k) @ (f_ik - theta_ref)
-
+        j_c_k = np.linalg.pinv(J_c_k)
+        x_c_k = x_c_k - j_c_k @ (f_ik - theta_ref)
         f_error = f_ik - theta_ref
         i += 1
         if i > 10:
@@ -183,7 +184,7 @@ def forward_kinematics(theta_ref, leg='right' or 'left'):
         # print(J_c_k)
         # print("inv_J: ")
         # print(np.linalg.pinv(J_c_k))
-    return x_c_k
+    return x_c_k, j_c_k
 
 
 # 解耦
@@ -212,17 +213,35 @@ def decouple(roll, pitch, leg='right' or 'left'):
 
     return my_THETA, Jac
 
-def convert_ankle_net_to_real(p1, p2, p3, p4):  # 4/5/10/11
-    joint_right, _ = decouple(p2, p1, "right")
-    joint_left, _ = decouple(p4, p3, "left")
-    return joint_right[0], -joint_right[1], -joint_left[1], joint_left[0]  # 4\5\10\11
+def convert_p_ori_2_joint(p1, p2, p3, p4):  # 4/5/10/11
+    joint_p_right, jac_right = decouple(p2, p1, "right")
+    joint_p_left, jac_left = decouple(p4, p3, "left")
+    return (joint_p_right[0], -joint_p_right[1],
+            -joint_p_left[1], joint_p_left[0])  # 4\5\10\11
 
+def convert_p_joint_2_ori(p1, p2, p3, p4):  # 4\5\10\11
+    ori_right, jac_right = forward_kinematics(np.array([p1, -p2]), leg='right')
+    ori_left, jac_left = forward_kinematics(np.array([-p4, p3]), leg='left')
 
-def convert_ankle_real_to_net(p1, p2, p3, p4):  # 4\5\10\11
-    ori_right = forward_kinematics(np.array([p1, -p2]), leg='right')
-    ori_left = forward_kinematics(np.array([-p4, p3]), leg='left')
-    return ori_right[1], ori_right[0], -ori_left[1], -ori_left[0]
+    return (ori_right[1], ori_right[0],
+            -ori_left[1], -ori_left[0])
 
+def convert_pv_ori_2_joint(p1, p2, p3, p4, v1, v2, v3, v4):  # 4/5/10/11
+    joint_p_right, jac_right = decouple(p2, p1, "right")
+    joint_p_left, jac_left = decouple(p4, p3, "left")
+    joint_v_right = jac_right @ np.array([v2, v1])  # 2*2
+    joint_v_left = jac_left @ np.array([v4, v3])
+    return (joint_p_right[0], -joint_p_right[1], -joint_p_left[1], joint_p_left[0],
+            joint_v_right[0], -joint_v_right[1], -joint_v_left[1], joint_v_left[0],)  # 4\5\10\11
+
+def convert_pv_joint_2_ori(p1, p2, p3, p4, v1, v2, v3, v4):  # 4\5\10\11
+    ori_right, jac_right = forward_kinematics(np.array([p1, -p2]), leg='right')
+    ori_left, jac_left = forward_kinematics(np.array([-p4, p3]), leg='left')
+    ori_v_right = jac_right @ np.array([v1, -v2])  # 2*2
+    ori_v_left = jac_left @ np.array([-v4, v3])
+
+    return (ori_right[1], ori_right[0], -ori_left[1], -ori_left[0],
+            ori_v_right[1], ori_v_right[0], -ori_v_left[1], -ori_v_left[0])
 
 if __name__ == '__main__':
     angle2rad = 1 / 180 * np.pi
@@ -243,17 +262,52 @@ if __name__ == '__main__':
     # my_joint_left, _ = decouple(0.0,0.3,"left")
     #
     # print(my_joint_right, my_joint_left)
+
+    # ！！！！！------------------------------------------------
+    # arr = np.array([
+    #     [1.06, -0.95, -0.95, 1.06],
+    #     [-0.68, 0.69, 0.69, -0.68],
+    #     [0.6, 0.3, 0.4, 0.40],
+    #     [-0.4, -0.4, -0.6, -0.3],
+    #     [0.41338, -0.2383, -0.41338, 0.2383],
+    # ])
+    # for x in arr:
+    #     o1, o2, o3, o4 = convert_p_joint_2_ori(x[0], x[1], x[2], x[3])  # 电机角度——脚板姿态 4\5\10\11
+    #     j1, j2, j3, j4 = convert_p_ori_2_joint(o1, o2, o3, o4)          # 脚板姿态——电机角度 4\5\10\11
+    #     print('原始电机角度: %.4f, %.4f, %.4f, %.4f' % (x[0], x[1], x[2], x[3]))
+    #     print('电机转关节: %.4f, %.4f, %.4f, %.4f' % (o1, o2, o3, o4))
+    #     print('关节转电机: %.4f, %.4f, %.4f, %.4f' % (j1, j2, j3, j4))
+    #     print('----------------')
+
+    # ！！！！！------------------------------------------------
     arr = np.array([
-        [1.06, -0.95, -0.95, 1.06],
-        [-0.68, 0.69, 0.69, -0.68],
-        [0.6, 0.3, 0.4, 0.40],
-        [-0.4, -0.4, -0.6, -0.3],
-        [0.41338, -0.2383, -0.41338, 0.2383],
+        [0, 0, 0, 0, 20., -20., -20., 20.],
+        [0, 0, 0, 0, 20., 20., -20., -20.],
+        # [-0.68, 0.69, 0.69, -0.68],
+        # [0.6, 0.3, 0.4, 0.40],
+        # [-0.4, -0.4, -0.6, -0.3],
+        # [0.41338, -0.2383, -0.41338, 0.2383],
     ])
     for x in arr:
-        o1, o2, o3, o4 = convert_ankle_real_to_net(x[0], x[1], x[2], x[3])  # 电机角度——脚板姿态 4\5\10\11
-        j1, j2, j3, j4 = convert_ankle_net_to_real(o1, o2, o3, o4)          # 脚板姿态——电机角度 4\5\10\11
-        print('原始电机角度: %.4f, %.4f, %.4f, %.4f' % (x[0], x[1], x[2], x[3]))
-        print('电机转关节: %.4f, %.4f, %.4f, %.4f' % (o1, o2, o3, o4))
+        o1, o2, o3, o4, v1, v2, v3, v4 = (
+            convert_pv_joint_2_ori(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], ))  # 电机角度——脚板姿态 4\5\10\11
+        j1, j2, j3, j4 = convert_p_ori_2_joint(o1, o2, o3, o4)          # 脚板姿态——电机角度 4\5\10\11
+        print('原始电机角度: %.4f, %.4f, %.4f, %.4f ' % (x[0], x[1], x[2], x[3]), end='')
+        print('原始电机速度: %.4f, %.4f, %.4f, %.4f ' % (x[4], x[5], x[6], x[7]))
+        print('转关节角度: %.4f, %.4f, %.4f, %.4f ' % (o1, o2, o3, o4), end='')
+        print('转关节速度: %.4f, %.4f, %.4f, %.4f ' % (v1, v2, v3, v4))
         print('关节转电机: %.4f, %.4f, %.4f, %.4f' % (j1, j2, j3, j4))
         print('----------------')
+
+    # ！！！！！------------------------------------------------
+    # arr = np.array([
+    #     [0, 0.3, 0, 0.3,],
+    # ])
+    # for x in arr:
+    #     j1, j2, j3, j4 = convert_p_ori_2_joint(x[0], x[1], x[2], x[3])  # 脚板姿态——电机角度 4\5\10\11 p/r/p/r
+    #     o1, o2, o3, o4 = convert_p_joint_2_ori(j1, j2, j3, j4)  # 电机角度——脚板姿态 4\5\10\11 p/r/p/r
+    #     print('关节转电机: %.4f, %.4f, %.4f, %.4f' % (j1, j2, j3, j4))
+    #     # print('原始电机角度: %.4f, %.4f, %.4f, %.4f' % (x[0], x[1], x[2], x[3]))
+    #     print('电机转关节: %.4f, %.4f, %.4f, %.4f' % (o1, o2, o3, o4))
+    #
+    #     print('----------------')
