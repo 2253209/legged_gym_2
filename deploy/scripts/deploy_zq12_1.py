@@ -14,7 +14,7 @@ import lcm
 from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
 from deploy.utils.act_gen import ActionGenerator
-from deploy.utils.ankle_joint_converter import convert_pv_joint_2_ori, convert_p_ori_2_joint
+from deploy.utils.ankle_joint_converter import convert_p_ori_2_joint, convert_pv_joint_2_ori
 from deploy.utils.logger import SimpleLogger, get_title_82
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
@@ -52,6 +52,7 @@ class Deploy:
         self.log_path = path
 
     def publish_action(self, action, kp, kd):
+
         command_for_robot = pd_targets_lcmt()
 
         command_for_robot.q_des = action
@@ -112,7 +113,7 @@ class Deploy:
         total_data[0, 45] = sin_pos[0, 0]
         total_data[0, 45:57] = q - self.cfg.env.default_dof_pos
         total_data[0, 57:69] = dq
-        total_data[0, 69:81] = target_q
+        total_data[0, 69:81] = action
         total_data[0, 81] = sin_pos[0, 0]
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
@@ -130,7 +131,9 @@ class Deploy:
         q_last = np.zeros_like(action)
         q_zero = np.zeros_like(action)
         target_q = np.zeros_like(action)
+        target_q2 = np.zeros_like(action)
         phase = torch.tensor([[0.]])
+        integral_dq = np.zeros_like(action)
 
         kp = np.zeros(self.cfg.env.num_actions)
         kd = np.zeros(self.cfg.env.num_actions)
@@ -176,7 +179,7 @@ class Deploy:
                 # 将观察得到的脚部电机位置转换成神经网络可以接受的ori位置
                 try:
                     # print(q[4], q[5], q[10], q[11] )
-                    q[4], q[5], q[10], q[11], dq[4], dq[5], dq[10], dq[11] =\
+                    q[4], q[5], q[10], q[11], dq[4], dq[5], dq[10], dq[11] = \
                         convert_pv_joint_2_ori(q[4], q[5], q[10], q[11], dq[4], dq[5], dq[10], dq[11])
                     q_last[:] = q[:]
                 except Exception as e:
@@ -187,8 +190,13 @@ class Deploy:
                 # 脚踝电机观测速度=0
                 # dq[4:6] = 0.
                 # dq[10:12] = 0.
-                self.combine_obs(obs, omega, eu_ang, q, dq, action, sin_pos)
-                obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
+                integral_dq[4] += dq[4] * self.cfg.env.dt
+                integral_dq[5] += dq[5] * self.cfg.env.dt
+                integral_dq[10] += dq[10] * self.cfg.env.dt
+                integral_dq[11] += dq[11] * self.cfg.env.dt
+
+                self.combine_obs(obs, omega, eu_ang, q, dq, integral_dq, sin_pos)
+                # obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
                 self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q, sin_pos)
 
@@ -237,11 +245,12 @@ class Deploy:
                 #                  self.cfg.env.joint_limit_max)
                 # target_q[:] = action_scaled[:]
                 target_q = np.clip(target_q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
-
                 # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
-                action[4], action[5], action[10], action[11] =\
-                    convert_p_ori_2_joint(action[4], action[5], action[10], action[11])
+                target_q2[:] = target_q[:]
 
+                target_q2[4], target_q2[5], target_q2[10], target_q2[11] =\
+                    convert_p_ori_2_joint(target_q[4], target_q[5], target_q[10], target_q[11])
+                target_q[:] = target_q2[:]
                 # target_dq = np.zeros(self.cfg.env.num_actions, dtype=np.double)
                 # Generate PD control
                 # tau = self.pd_control(target_q, q, self.cfg.robot_config.kps,
@@ -250,10 +259,10 @@ class Deploy:
 
                 # !!!!!!!! send target_q to lcm
                 if key_comm.stepCalibrate:
-                    self.publish_action(target_q, kp, kd)
+                    self.publish_action(target_q2, kp, kd)
                     # pass
                 elif key_comm.stepNet:
-                    self.publish_action(target_q, kp, kd)
+                    self.publish_action(target_q2, kp, kd)
                     # pass
                 else:
                     pass
@@ -273,7 +282,7 @@ class Deploy:
 class DeployCfg:
 
     class env:
-        dt = 0.01
+        dt = 0.002
         step_freq = 1.5  # Hz
         num_single_obs = 46  # 3+3+3+10+10+10+1
         action_scale = 0.25

@@ -177,7 +177,7 @@ class Zq12Robot(LeggedRobot):
     def compute_reference_states(self):
         phase = (self.ref_count * self.dt * self.cfg.commands.step_freq) % 1.
 
-        self.sin_pos = torch.sin(2 * torch.pi * phase)
+        self.sin_pos = (1-torch.cos(2 * torch.pi * phase))/2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
         sin_pos_l = self.sin_pos.clone()
         sin_pos_r = self.sin_pos.clone()
 

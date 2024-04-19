@@ -52,8 +52,6 @@ class Deploy:
         self.log_path = path
 
     def publish_action(self, action, kp, kd):
-        # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
-        action[4], action[5], action[10], action[11] = convert_p_ori_2_joint(action[4], action[5], action[10], action[11])
 
         command_for_robot = pd_targets_lcmt()
 
@@ -133,6 +131,7 @@ class Deploy:
         q_last = np.zeros_like(action)
         q_zero = np.zeros_like(action)
         target_q = np.zeros_like(action)
+        target_q2 = np.zeros_like(action)
         phase = torch.tensor([[0.]])
 
         kp = np.zeros(self.cfg.env.num_actions)
@@ -217,13 +216,13 @@ class Deploy:
 
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作
-                    action = policy(torch.tensor(obs))[0].detach().numpy()
+                    action[:] = policy(torch.tensor(obs))[0].detach().numpy()
                     # print(f'net[2]={a_temp[2]} ', end='')
 
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
                     # target_q = action * self.cfg.env.action_scale
-                    target_q = action * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    target_q[:] = action * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
 
                 else:
                     print('退出')
@@ -231,7 +230,7 @@ class Deploy:
                 # 插值
                 if key_comm.timestep < count_max_merge:
                     target_q[:] = (q_last[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                                 + target_q[:] / count_max_merge * (key_comm.timestep + 1))
+                                   + target_q[:] / count_max_merge * (key_comm.timestep + 1))
 
                 # print(f'action[2]={action[2]}, action_scaled[2]={action_scaled[2]},')
                 # action = np.clip(action,
@@ -239,7 +238,12 @@ class Deploy:
                 #                  self.cfg.env.joint_limit_max)
                 # target_q[:] = action_scaled[:]
                 target_q = np.clip(target_q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
+                # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
+                target_q2[:] = target_q[:]
 
+                target_q2[4], target_q2[5], target_q2[10], target_q2[11] =\
+                    convert_p_ori_2_joint(target_q[4], target_q[5], target_q[10], target_q[11])
+                target_q[:] = target_q2[:]
                 # target_dq = np.zeros(self.cfg.env.num_actions, dtype=np.double)
                 # Generate PD control
                 # tau = self.pd_control(target_q, q, self.cfg.robot_config.kps,
@@ -248,10 +252,10 @@ class Deploy:
 
                 # !!!!!!!! send target_q to lcm
                 if key_comm.stepCalibrate:
-                    self.publish_action(target_q, kp, kd)
+                    self.publish_action(target_q2, kp, kd)
                     # pass
                 elif key_comm.stepNet:
-                    self.publish_action(target_q, kp, kd)
+                    self.publish_action(target_q2, kp, kd)
                     # pass
                 else:
                     pass
