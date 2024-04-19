@@ -61,17 +61,16 @@ class Zq12Robot(LeggedRobot):
         self.body_pos = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device, requires_grad=False)
         self.reset_buf2 = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
         self.ref_dof_pos = torch.zeros_like(self.dof_pos)  # 步态生成器-生成的参考姿势
-        self.ref_count = torch.zeros((self.num_envs, 1), device=self.device, dtype=torch.long)  # 步态生成器--计数器
         self.switch_step_or_stand = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)  # cmd较小不需要步态的（0,1,1,0...,1,0）
-        self.sin_pos = torch.zeros((self.num_envs, 1), device=self.device, dtype=torch.long)  # 每个env当前步态的sin相位。如果步频变化，则可以从这里开始。
-
+        self.ref_count = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)  # 步态生成器--计数器
+        self.cos_pos = torch.zeros((self.num_envs, 2), device=self.device, dtype=torch.float)  # 每个env当前步态的cos相位。如果步频变化，则可以从这里开始。
 
     def step(self, actions):
         # actions[:, :] = self.default_dof_pos[0, :]
         # actions[:, 0:4] = self.default_dof_pos[0, 0:4]  # 4=action
         # actions[:, 5:10] = self.default_dof_pos[0, 5:10]  # 10=action
         # actions[:, 11] = self.default_dof_pos[0, 11]
-        # actions[:, :] = self.ref_dof_pos[:, :] // self.cfg.control.action_scale
+        # actions[:, :] = self.ref_dof_pos[:, :] / self.cfg.control.action_scale
         self.ref_count += 1
         self.compute_reference_states()
         return super().step(actions)
@@ -82,14 +81,15 @@ class Zq12Robot(LeggedRobot):
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         # self.dof_vel[:, 4:6] = 0.
         # self.dof_vel[:, 10:12] = 0.
+        print(self.dof_vel[0, 5], self.dof_vel[0, 11],)
         self.obs_buf = torch.cat((
+            self.cos_pos,  # 2
+            self.commands[:, :3] * self.commands_scale,  # 3
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz,  # 3
-            self.commands[:, :3] * self.commands_scale,  # 3
             (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12
             self.dof_vel * self.obs_scales.dof_vel,  # 12
             self.actions,  # 12
-            self.sin_pos   # 1
             ), dim=-1)
         # print(self.base_euler_xyz[0])
         # add perceptive inputs if not blind
@@ -146,13 +146,14 @@ class Zq12Robot(LeggedRobot):
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
 
-        noise_vec[:3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel  # 0.2 * 1 * 0.25 = 0.05
-        noise_vec[3:6] = noise_scales.gravity * noise_level  # 0.05 * 1. = 0.05
-        noise_vec[6:9] = 0.  # commands
-        noise_vec[9:21] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos  # 0.01 * 1 * 1. = 0.01
-        noise_vec[21:33] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel  # 1.5 * 1 * 0.05 = 0.075
-        noise_vec[33:45] = 0.  # previous actions
-        noise_vec[45] = 0.  # sin
+        noise_vec[0:2] = 0.  # cos 2
+        noise_vec[2:5] = 0.  # commands 3
+        noise_vec[5:8] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel  # 0.2 * 1 * 0.25 = 0.05
+        noise_vec[8:11] = noise_scales.gravity * noise_level  # 0.05 * 1. = 0.05
+
+        noise_vec[11:23] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos  # 0.01 * 1 * 1. = 0.01
+        noise_vec[23:35] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel  # 1.5 * 1 * 0.05 = 0.075
+        noise_vec[35:47] = 0.  # previous actions
         # if self.cfg.terrain.measure_heights:
         #     noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec
@@ -175,44 +176,44 @@ class Zq12Robot(LeggedRobot):
         # self.switch_step_or_stand[:] *= torch.norm(self.commands[:, :2], dim=1) > 0.2  # 1=step, 0=stand
 
     def compute_reference_states(self):
-        phase = (self.ref_count * self.dt * self.cfg.commands.step_freq) % 1.
-
-        self.sin_pos = (1-torch.cos(2 * torch.pi * phase))/2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
-        sin_pos_l = self.sin_pos.clone()
-        sin_pos_r = self.sin_pos.clone()
+        phase = self.ref_count * self.dt * self.cfg.commands.step_freq * 2.
+        mask_right = (torch.floor(phase) + 1) % 2
+        mask_left = torch.floor(phase) % 2
+        cos_pos = (1 - torch.cos(2 * torch.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
+        self.cos_pos[:, 0] = cos_pos * mask_right
+        self.cos_pos[:, 1] = cos_pos * mask_left
 
         scale_1 = self.cfg.commands.step_joint_offset
         scale_2 = 1.8 * scale_1
         scale_3 = scale_2 - scale_1
 
-        self.ref_dof_pos[:, :] = 0.
+        self.ref_dof_pos[:, :] = self.default_dof_pos[0, :]
         # right foot stance phase set to default joint pos
-        sin_pos_r[sin_pos_r < 0] = 0
-        self.ref_dof_pos[:, 2] = sin_pos_r[:, 0] * scale_1
-        self.ref_dof_pos[:, 3] = -sin_pos_r[:, 0] * scale_2
-        self.ref_dof_pos[:, 4] = sin_pos_r[:, 0] * scale_3
+        # sin_pos_r[sin_pos_r < 0] = 0
+        self.ref_dof_pos[:, 2] += self.cos_pos[:, 0] * scale_1
+        self.ref_dof_pos[:, 3] += -self.cos_pos[:, 0] * scale_2
+        self.ref_dof_pos[:, 4] += self.cos_pos[:, 0] * scale_3
         # left foot stance phase set to default joint pos
-        sin_pos_l[sin_pos_l > 0] = 0
-        self.ref_dof_pos[:, 8] = -sin_pos_l[:, 0] * scale_1
-        self.ref_dof_pos[:, 9] = sin_pos_l[:, 0] * scale_2
-        self.ref_dof_pos[:, 10] = -sin_pos_l[:, 0] * scale_3
+        # sin_pos_l[sin_pos_l > 0] = 0
+        self.ref_dof_pos[:, 8] += self.cos_pos[:, 1] * scale_1
+        self.ref_dof_pos[:, 9] += -self.cos_pos[:, 1] * scale_2
+        self.ref_dof_pos[:, 10] += self.cos_pos[:, 1] * scale_3
 
-        self.ref_dof_pos[:, :] += self.default_dof_pos[0, :]
         # 双足支撑相位
         # self.ref_dof_pos[torch.abs(self.sin_pos[:, 0]) < 0.1, :] = 0. + self.default_dof_pos[0, :]
 
         # 如果cmd很小，姿态一直为默认姿势，sin相位也为0
         # self.ref_dof_pos[self.switch_step_or_stand == 0, :] = 0. + self.default_dof_pos[0, :]
-        # print(self.ref_count[0], phase[0], self.sin_pos[0], self.ref_dof_pos[0, [2, 3, 4, 8, 9, 10]])
+        # print(self.ref_count[0], self.cos_pos[0, 0], self.cos_pos[0, 1], self.ref_dof_pos[0, [2, 3, 4, 8, 9, 10]])
         # print(self.sin_pos[0, 0], self.ref_dof_pos[0, :])
 
     # ------------------------ rewards --------------------------------------------------------------------------------
 
     def _reward_no_fly(self):
-        # 奖励两脚都在地上，有一定压力
         contacts = self.contact_forces[:, self.feet_indices, 2] > 1.1
-        single_contact = torch.sum(1. * contacts, dim=1) == 2
+        single_contact = torch.sum(1. * contacts, dim=1) == 1
         return 1. * single_contact
+
 
     def _reward_target_joint_pos(self):
         """

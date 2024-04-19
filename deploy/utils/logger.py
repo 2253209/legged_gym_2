@@ -2,34 +2,36 @@ from datetime import datetime
 import os
 
 
-def get_title_46():
+def get_title_59():
     i = 0
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(46):
+    for k in range(59):
         if k == 0:
-            label = 'omg'
-            i = 0
-        elif k == 3:
-            label = 'eul'
-            i = 0
-        elif k == 6:
-            label = 'cmd'
-            i = 0
-        elif k == 9:
-            label = 'n_pos'
-            i = 0
-        elif k == 21:
-            label = 'n_vel'
-            i = 0
-        elif k == 33:
-            label = 'n_act'
-            i = 0
-        elif k == 45:
             label = 'sin'
             i = 0
-
+        elif k == 2:
+            label = 'cmd'
+            i = 0
+        elif k == 5:
+            label = 'omg'
+            i = 0
+        elif k == 8:
+            label = 'eul'
+            i = 0
+        elif k == 11:
+            label = 'n_pos'
+            i = 0
+        elif k == 23:
+            label = 'n_vel'
+            i = 0
+        elif k == 35:
+            label = 'n_act'
+            i = 0
+        elif k == 47:
+            label = 'sc_act'
+            i = 0
         title += f'{label}_{i},'
         i += 1
     return title
@@ -92,7 +94,7 @@ class SimpleLogger:
         for row in obs:
             k = 0
             self.file.write('%d,%d,' % (step, int(time * 10 ** 6)))
-            for index, item in enumerate(row):  # 39
+            for index, item in enumerate(row):
                 self.file.write(' %.4f,' % item)
                 k += 1
 

@@ -113,7 +113,7 @@ class Deploy:
         total_data[0, 45] = sin_pos[0, 0]
         total_data[0, 45:57] = q - self.cfg.env.default_dof_pos
         total_data[0, 57:69] = dq
-        total_data[0, 69:81] = action
+        total_data[0, 69:81] = target_q
         total_data[0, 81] = sin_pos[0, 0]
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):

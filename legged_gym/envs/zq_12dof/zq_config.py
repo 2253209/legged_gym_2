@@ -34,7 +34,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 class Zq12Cfg(LeggedRobotCfg):
     class env(LeggedRobotCfg.env):
         num_envs = 4096
-        num_observations = 46  # 169
+        num_observations = 47  # 169
         num_actions = 12
         env_spacing = 1.
 
@@ -47,26 +47,26 @@ class Zq12Cfg(LeggedRobotCfg):
     class init_state(LeggedRobotCfg.init_state):
         pos = [0.0, 0.0, 0.84]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
-            'JOINT_Y1': -0.05,
+            'JOINT_Y1': -0.0,
             'JOINT_Y2': 0.0,
             'JOINT_Y3': 0.21,
             'JOINT_Y4': -0.53,
             'JOINT_Y5': 0.32,
-            'JOINT_Y6': 0.05,
+            'JOINT_Y6': 0.0,
 
-            'JOINT_Z1': 0.05,
+            'JOINT_Z1': 0.0,
             'JOINT_Z2': 0.0,
             'JOINT_Z3': 0.21,
             'JOINT_Z4': -0.53,
             'JOINT_Z5': 0.32,
-            'JOINT_Z6': -0.05,
+            'JOINT_Z6': -0.0,
         }
-        target_joint_angles = [-0.1, 0.0, 0.21, -0.53, 0.32, 0.1,
-                               0.1, 0.0, 0.21, -0.53, 0.32, -0.1]
+        target_joint_angles = [-0., 0.0, 0.21, -0.53, 0.32, 0.,
+                               0., 0.0, 0.21, -0.53, 0.32, -0.]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
-        # stiffness = {'JOINT': 0.0}  # [N*m/rad]
+        # stiffness = {'JOINT': 100.0}  # [N*m/rad]
         # damping = {'JOINT': 0.0}
         stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 200.0, 'JOINT_Y6': 200.0,
                      'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 200.0, 'JOINT_Z6': 200.0,
@@ -75,13 +75,14 @@ class Zq12Cfg(LeggedRobotCfg):
                    'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 4.0, 'JOINT_Z6': 4.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.25
+        action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 
     class sim(LeggedRobotCfg.sim):
         dt = 0.005
         gravity = [0., 0., -9.81]  # [m/s^2]
+        # gravity = [0., 0., 0]  # [m/s^2]
 
     class viewer(LeggedRobotCfg.viewer):
         ref_env = 0
@@ -90,17 +91,17 @@ class Zq12Cfg(LeggedRobotCfg):
 
     class commands(LeggedRobotCfg.commands):
         step_joint_offset = 0.30  # rad
-        step_freq = 1.5  # HZ （e.g. cycle-time=0.66）
+        step_freq = 2.  # HZ （e.g. cycle-time=0.66）
 
         class ranges(LeggedRobotCfg.commands.ranges):
-            # lin_vel_x = [-0.3, 0.3]  # min max [m/s]
-            # lin_vel_y = [-0.0, 0.0]   # min max [m/s]
-            # ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
-            # heading = [-0.3, 0.3]
-            lin_vel_x = [-0.0, 0.0]  # min max [m/s]
-            lin_vel_y = [-0.0, 0.0]  # min max [m/s]
-            ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
-            heading = [-0, 0]
+            lin_vel_x = [-0.3, 0.3]  # min max [m/s]
+            lin_vel_y = [-0.0, 0.0]   # min max [m/s]
+            ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
+            heading = [-0.3, 0.3]
+            # lin_vel_x = [-0.0, 0.0]  # min max [m/s]
+            # lin_vel_y = [-0.0, 0.0]  # min max [m/s]
+            # ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
+            # heading = [-0, 0]
 
     class asset(LeggedRobotCfg.asset):
         # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
@@ -118,9 +119,9 @@ class Zq12Cfg(LeggedRobotCfg):
         friction_range = [0.8, 1.2]
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
-        push_robots = False
+        push_robots = True
         push_interval_s = 5
-        max_push_vel_xy = 1.
+        max_push_vel_xy = 0.5
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.95
