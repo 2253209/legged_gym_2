@@ -81,7 +81,8 @@ class Zq12Robot(LeggedRobot):
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         # self.dof_vel[:, 4:6] = 0.
         # self.dof_vel[:, 10:12] = 0.
-        print(self.dof_vel[0, 5], self.dof_vel[0, 11],)
+        # print('dof_pos:', list(map(lambda x: "%.4f" % x, self.dof_pos[0])))
+        # print('dof_vel:', list(map(lambda x: "%.4f" % x, self.dof_vel[0])))
         self.obs_buf = torch.cat((
             self.cos_pos,  # 2
             self.commands[:, :3] * self.commands_scale,  # 3

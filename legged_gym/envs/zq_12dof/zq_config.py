@@ -75,9 +75,19 @@ class Zq12Cfg(LeggedRobotCfg):
                    'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 4.0, 'JOINT_Z6': 4.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.1
+        action_scale = 0.2
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
+
+    class normalization(LeggedRobotCfg.normalization):
+        class obs_scales(LeggedRobotCfg.normalization.obs_scales):
+            lin_vel = 1.0
+            ang_vel = 0.25
+            dof_pos = 1.0
+            dof_vel = 0.05
+            height_measurements = 5.0
+        clip_observations = 100.
+        clip_actions = 100.
 
     class sim(LeggedRobotCfg.sim):
         dt = 0.005
@@ -178,7 +188,7 @@ class Zq12CfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
         experiment_name = 'zq12'
-        max_iterations = 3000
+        max_iterations = 30000
         # logging
         save_interval = 400
         # checkpoint = '8400'

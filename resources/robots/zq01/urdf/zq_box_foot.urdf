@@ -40,7 +40,7 @@
   <link  name="Y1">
      <inertial>
       <origin xyz="0.0006345 -0.00035651634 -0.00127834"  rpy="0 0 0" />
-      <mass  value="10" />
+      <mass  value="1.528" />
       <inertia
         ixx="0.0018427118"
         ixy="0.0"
