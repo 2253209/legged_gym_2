@@ -10,28 +10,46 @@ class StateEstimator:
     def __init__(self, lc):
         self.lc = lc
 
-        self.joint_pos = np.zeros(12)
-        self.joint_vel = np.zeros(12)
-        self.quat = np.zeros(4)
-        self.omegaBody = np.zeros(3)
+        self.joint_pos = np.zeros(12, dtype=np.float32)
+        self.joint_vel = np.zeros(12, dtype=np.float32)
+        self.quat = np.zeros(4, dtype=np.float32)
+        self.omegaBody = np.zeros(3, dtype=np.float32)
+
+        self.buffer_vel = np.zeros((5, 12), dtype=np.float32)
+        self.buffer_omg = np.zeros((5, 3), dtype=np.float32)
 
         self.state_subscription = self.lc.subscribe("state_estimator", self._state_cb)
         self.leg_subscription = self.lc.subscribe("leg_control_data_RL", self._leg_cb)
         self.running = True
 
+    def filter_vel(self, value):
+        self.buffer_vel = np.roll(self.buffer_vel, -1, axis=0)
+        self.buffer_vel[-1] = value
+
+        # Calculate the mean of the buffer
+        mean_value = self.buffer_vel.mean(axis=0)
+        return mean_value
+
+    def filter_omg(self, value):
+        self.buffer_omg = np.roll(self.buffer_omg, -1, axis=0)
+        self.buffer_omg[-1] = value
+
+        # Calculate the mean of the buffer
+        mean_value = self.buffer_omg.mean(axis=0)
+        return mean_value
 
     def _state_cb(self, channel, data):
         # print("update state")
         msg = state_estimator_lcmt.decode(data)
         self.quat = np.array(msg.quat)
-        self.omegaBody = np.array(msg.omegaBody)
+        self.omegaBody = self.filter_omg(np.array(msg.omegaBody))
         # print(f"update imudata {msg.id}")
 
     def _leg_cb(self, channel, data):
         # print("update leg")
         msg = leg_control_data_lcmt.decode(data)
         self.joint_pos = np.array(msg.q)
-        self.joint_vel = np.array(msg.qd)
+        self.joint_vel = self.filter_vel(np.array(msg.qd))
         # print(f"update legdata {msg.id}")
 
     def poll(self, cb=None):
@@ -66,10 +84,19 @@ if __name__ == "__main__":
 
     lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
     se = StateEstimator(lc)
-    try:
-        se.spin()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        se.close()
+    # try:
+    #     se.spin()
+    # except KeyboardInterrupt:
+    #     pass
+    # finally:
+    #     se.close()
 
+    # 测试均值滤波
+    # for i in range(100):
+    #     values = np.random.random(12)
+    #     print(i, values)
+    #     print(se.filter_vel(values))
+    for i in range(100):
+        values = np.random.random(3)
+        print(i, values)
+        print(se.filter_omg(values))

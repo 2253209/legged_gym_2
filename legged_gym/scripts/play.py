@@ -38,7 +38,7 @@ from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Log
 
 import numpy as np
 import torch
-from deploy.utils.logger import SimpleLogger, get_title_59
+from deploy.utils.logger import SimpleLogger, get_title_short
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -75,13 +75,15 @@ def play(args):
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
-    sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_59())
+    sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_short())
     t1=0
     t0=0
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
-
+        env.commands[:, 0] = 0.1
+        env.commands[:, 1] = 0.0
+        env.commands[:, 2] = 0.0
         obs, _, rews, dones, infos = env.step(actions.detach())
         t1=time.time()
         obs_log[:, 0:47] = obs[:, :]

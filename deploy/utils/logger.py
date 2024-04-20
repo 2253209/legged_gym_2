@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 
 
-def get_title_59():
+def get_title_short():
     i = 0
     label = 'No,Time,'
     title = ''
@@ -37,41 +37,41 @@ def get_title_59():
     return title
 
 
-def get_title_82():
+def get_title_long():
     i = 0
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(82):
+    for k in range(83):
         if k == 0:
-            label = 'omg'
+            label = 'sin'
             i = 0
-        elif k == 3:
-            label = 'eul'
-            i = 0
-        elif k == 6:
+        elif k == 2:
             label = 'cmd'
             i = 0
-        elif k == 9:
+        elif k == 5:
+            label = 'omg'
+            i = 0
+        elif k == 8:
+            label = 'eul'
+            i = 0
+        elif k == 11:
             label = 'n_pos'
             i = 0
-        elif k == 21:
+        elif k == 23:
             label = 'n_vel'
             i = 0
-        elif k == 33:
+        elif k == 35:
             label = 'n_act'
             i = 0
-        elif k == 45:
+        elif k == 47:
             label = 'r_pos'
             i = 0
-        elif k == 57:
+        elif k == 59:
             label = 'r_vel'
             i = 0
-        elif k == 69:
+        elif k == 71:
             label = 'r_act'
-            i = 0
-        elif k == 81:
-            label = 'sin'
             i = 0
         title += f'{label}_{i},'
         i += 1
@@ -93,7 +93,7 @@ class SimpleLogger:
     def save(self, obs, step, time):
         for row in obs:
             k = 0
-            self.file.write('%d,%d,' % (step, int(time * 10 ** 6)))
+            self.file.write('%d,%d,' % (step, int(time * 10 ** 3)))  # us
             for index, item in enumerate(row):
                 self.file.write(' %.4f,' % item)
                 k += 1

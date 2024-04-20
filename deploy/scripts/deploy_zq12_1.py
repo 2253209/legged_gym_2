@@ -14,8 +14,8 @@ import lcm
 from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
 from deploy.utils.act_gen import ActionGenerator
-from deploy.utils.ankle_joint_converter import convert_p_ori_2_joint, convert_pv_joint_2_ori
-from deploy.utils.logger import SimpleLogger, get_title_82
+from deploy.utils.ankle_joint_converter import convert_pv_joint_2_ori, convert_p_ori_2_joint
+from deploy.utils.logger import SimpleLogger, get_title_long
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
 
@@ -50,6 +50,8 @@ class Deploy:
         self.lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
         self.cfg = cfg
         self.log_path = path
+        self.obs_net = np.zeros((1, 47), dtype=np.float32)
+        self.obs_real = np.zeros((1, 36), dtype=np.float32)
 
     def publish_action(self, action, kp, kd):
 
@@ -82,39 +84,21 @@ class Deploy:
         eu_ang = quaternion_to_euler_array(quat)
         return q, dq, eu_ang, omega
 
-    def combine_obs(self, obs, omega, eu_ang, q, dq, action, sin_pos):
-        # self.base_ang_vel * self.obs_scales.ang_vel,  # 3
-        # self.base_euler_xyz,  # 3
-        # self.commands[:, :3] * self.commands_scale,  # 3
-        # self.dof_pos * self.obs_scales.dof_pos,  # 10
-        # self.dof_vel * self.obs_scales.dof_vel,  # 10
-        # self.actions  # 10
+    def combine_obs_net(self, cos_pos, omega, eu_ang, pos_net, vel_net, action_net):
+        self.obs_net[0, :2] = cos_pos[0, :2]
+        self.obs_net[0, 2] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
+        self.obs_net[0, 3] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
+        self.obs_net[0, 4] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
+        self.obs_net[0, 5:8] = omega[:3] * self.cfg.normalization.obs_scales.ang_vel  # 3
+        self.obs_net[0, 8:11] = eu_ang[:3] * self.cfg.normalization.obs_scales.quat  # 3
+        self.obs_net[0, 11:23] = (pos_net - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
+        self.obs_net[0, 23:35] = vel_net[:] * self.cfg.normalization.obs_scales.dof_vel  # 10
+        self.obs_net[0, 35:47] = action_net[:]  # 10
 
-        obs[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
-        obs[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
-        obs[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
-        obs[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
-        obs[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
-        obs[0, 9:21] = (q - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
-        obs[0, 21:33] = dq * self.cfg.normalization.obs_scales.dof_vel  # 10
-        obs[0, 33:45] = action  # 10
-        obs[0, 45] = sin_pos[0, 0]
-
-
-    def combine_total_obs(self, total_data, omega, eu_ang, q, dq, action, target_q, sin_pos):
-        total_data[0, 0:3] = omega * self.cfg.normalization.obs_scales.ang_vel  # 3
-        total_data[0, 3:6] = eu_ang * self.cfg.normalization.obs_scales.quat  # 3
-        total_data[0, 6] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
-        total_data[0, 7] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
-        total_data[0, 8] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
-        total_data[0, 9:21] = (q - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
-        total_data[0, 21:33] = dq * self.cfg.normalization.obs_scales.dof_vel  # 10
-        total_data[0, 33:45] = action  # 10
-        total_data[0, 45] = sin_pos[0, 0]
-        total_data[0, 45:57] = q - self.cfg.env.default_dof_pos
-        total_data[0, 57:69] = dq
-        total_data[0, 69:81] = target_q
-        total_data[0, 81] = sin_pos[0, 0]
+    def combine_obs_real(self, pos_real, vel_real, action_real):
+        self.obs_real[0, 0:12] = pos_real[:]
+        self.obs_real[0, 12:24] = vel_real[:]
+        self.obs_real[0, 24:36] = action_real[:]
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
         """
@@ -132,14 +116,10 @@ class Deploy:
         q_zero = np.zeros_like(action)
         target_q = np.zeros_like(action)
         target_q2 = np.zeros_like(action)
-        phase = torch.tensor([[0.]])
-        integral_dq = np.zeros_like(action)
-
+        phase = np.zeros((1, 1), dtype=np.float32)
+        cos_pos = np.zeros((1, 2), dtype=np.float32)
         kp = np.zeros(self.cfg.env.num_actions)
         kd = np.zeros(self.cfg.env.num_actions)
-
-        obs = np.zeros((1, self.cfg.env.num_single_obs), dtype=np.float32)
-        total_data = np.zeros((1, 82), dtype=np.float32)  # 39+36
 
         current_time = time.time()
 
@@ -154,11 +134,11 @@ class Deploy:
 
         act_gen = ActionGenerator(self.cfg)
 
-        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_82())
+        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_long())
 
         try:
             for i in range(10):
-                policy(torch.tensor(obs))[0].detach().numpy()
+                policy(torch.tensor(self.obs_net))[0].detach().numpy()
 
             while key_comm.listening:
                 c_delay = time.time() - current_time
@@ -170,8 +150,12 @@ class Deploy:
                     print(f'frq: {1 / frq} Hz count={key_comm.timestep}')
                 current_time = time.time()
 
-                phase[0, 0] = (key_comm.timestep * self.cfg.env.dt * self.cfg.env.step_freq) % 1.
-                sin_pos = torch.sin(2 * torch.pi * phase)
+                phase[0, 0] = (key_comm.timestep * self.cfg.env.dt * self.cfg.env.step_freq) * 2.
+                mask_right = (np.floor(phase) + 1) % 2
+                mask_left = np.floor(phase) % 2
+                cos_values = (1 - np.cos(2 * np.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
+                cos_pos[0, 0] = cos_values * mask_right
+                cos_pos[0, 1] = cos_values * mask_left
 
                 # Obtain an observation
                 q, dq, eu_ang, omega = self.get_obs(es)
@@ -179,8 +163,12 @@ class Deploy:
                 # 将观察得到的脚部电机位置转换成神经网络可以接受的ori位置
                 try:
                     # print(q[4], q[5], q[10], q[11] )
-                    q[4], q[5], q[10], q[11], dq[4], dq[5], dq[10], dq[11] = \
-                        convert_pv_joint_2_ori(q[4], q[5], q[10], q[11], dq[4], dq[5], dq[10], dq[11])
+                    # q[4], q[5], q[10], q[11] = convert_p_joint_2_ori(q[4], q[5], q[10], q[11])
+                    p1, p2, p3, p4, v1, v2, v3, v4 = \
+                        convert_pv_joint_2_ori(q[4], q[5], q[10], q[11],
+                                               dq[4], dq[5], dq[10], dq[11])
+                    q[4], q[5], q[10], q[11] = p1, p2, p3, p4
+                    dq[4], dq[5], dq[10], dq[11] = v1, v2, v3, v4
                     q_last[:] = q[:]
                 except Exception as e:
                     print(q[4], q[5], q[10], q[11])
@@ -190,18 +178,13 @@ class Deploy:
                 # 脚踝电机观测速度=0
                 # dq[4:6] = 0.
                 # dq[10:12] = 0.
-                integral_dq[4] += dq[4] * self.cfg.env.dt
-                integral_dq[5] += dq[5] * self.cfg.env.dt
-                integral_dq[10] += dq[10] * self.cfg.env.dt
-                integral_dq[11] += dq[11] * self.cfg.env.dt
+                self.combine_obs_net(cos_pos, omega, eu_ang, q, dq, action)
+                obs_clip = np.clip(self.obs_net, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
-                self.combine_obs(obs, omega, eu_ang, q, dq, integral_dq, sin_pos)
-                # obs = np.clip(obs, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
-
-                self.combine_total_obs(total_data, omega, eu_ang, q, dq, action, target_q, sin_pos)
+                self.combine_obs_real(q, dq, target_q)
 
                 # 将obs写入文件，在桌面
-                sp_logger.save(total_data, count_total, frq)  # total_obs.shape=75
+                sp_logger.save(np.concatenate((obs_clip, self.obs_real), axis=1), count_total, frq)
 
                 if key_comm.timestep == 0:
                     # action_last[:] = action[:]
@@ -223,7 +206,7 @@ class Deploy:
 
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作
-                    action[:] = policy(torch.tensor(obs))[0].detach().numpy()
+                    action[:] = policy(torch.tensor(obs_clip))[0].detach().numpy()
                     # print(f'net[2]={a_temp[2]} ', end='')
 
                     kp[:] = self.cfg.robot_config.kps[:]
@@ -246,11 +229,10 @@ class Deploy:
                 # target_q[:] = action_scaled[:]
                 target_q = np.clip(target_q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
                 # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
-                target_q2[:] = target_q[:]
-
-                target_q2[4], target_q2[5], target_q2[10], target_q2[11] =\
+                p1, p2, p3, p4 =\
                     convert_p_ori_2_joint(target_q[4], target_q[5], target_q[10], target_q[11])
-                target_q[:] = target_q2[:]
+
+                target_q[4], target_q[5], target_q[10], target_q[11] = p1, p2, p3, p4
                 # target_dq = np.zeros(self.cfg.env.num_actions, dtype=np.double)
                 # Generate PD control
                 # tau = self.pd_control(target_q, q, self.cfg.robot_config.kps,
@@ -259,10 +241,10 @@ class Deploy:
 
                 # !!!!!!!! send target_q to lcm
                 if key_comm.stepCalibrate:
-                    self.publish_action(target_q2, kp, kd)
+                    self.publish_action(target_q, kp, kd)
                     # pass
                 elif key_comm.stepNet:
-                    self.publish_action(target_q2, kp, kd)
+                    self.publish_action(target_q, kp, kd)
                     # pass
                 else:
                     pass
@@ -282,9 +264,10 @@ class Deploy:
 class DeployCfg:
 
     class env:
-        dt = 0.002
+        dt = 0.01
         step_freq = 1.5  # Hz
-        num_single_obs = 46  # 3+3+3+10+10+10+1
+        num_single_obs = 47  # 2+3+3+3+10+10+10+1
+
         action_scale = 0.25
         cycle_time = 1.0
         num_actions = 12
@@ -333,7 +316,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_tabu.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-20-5200.pt'
     policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot(policy)
