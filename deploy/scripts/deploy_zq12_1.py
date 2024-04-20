@@ -109,7 +109,7 @@ class Deploy:
 
 
     def run_robot(self, policy):
-
+        obs = np.zeros((1,self.cfg.env.num_single_obs), dtype=np.float32)
         action = np.zeros(self.cfg.env.num_actions, dtype=np.double)
         action[:] = self.cfg.env.default_dof_pos[:]
         q_last = np.zeros_like(action)
@@ -157,97 +157,31 @@ class Deploy:
                 cos_pos[0, 0] = cos_values * mask_right
                 cos_pos[0, 1] = cos_values * mask_left
 
-                # Obtain an observation
-                q, dq, eu_ang, omega = self.get_obs(es)
-                q = np.clip(q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉比较大的值
-                # 将观察得到的脚部电机位置转换成神经网络可以接受的ori位置
-                try:
-                    # print(q[4], q[5], q[10], q[11] )
-                    # q[4], q[5], q[10], q[11] = convert_p_joint_2_ori(q[4], q[5], q[10], q[11])
-                    p1, p2, p3, p4, v1, v2, v3, v4 = \
-                        convert_pv_joint_2_ori(q[4], q[5], q[10], q[11],
-                                               dq[4], dq[5], dq[10], dq[11])
-                    q[4], q[5], q[10], q[11] = p1, p2, p3, p4
-                    dq[4], dq[5], dq[10], dq[11] = v1, v2, v3, v4
-                    q_last[:] = q[:]
-                except Exception as e:
-                    print(q[4], q[5], q[10], q[11])
-                    print(e)
-                    q[:] = q_last[:]
-
-                # 脚踝电机观测速度=0
-                # dq[4:6] = 0.
-                # dq[10:12] = 0.
-                self.combine_obs_net(cos_pos, omega, eu_ang, q, dq, action)
-                obs_clip = np.clip(self.obs_net, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
-
-                self.combine_obs_real(q, dq, target_q)
+                obs[0, :2] = cos_pos[0, :]
+                obs[0, 2:35] = 0.
+                obs[0, -12:] = action[:]
 
                 # 将obs写入文件，在桌面
-                sp_logger.save(np.concatenate((obs_clip, self.obs_real), axis=1), count_total, frq)
+                sp_logger.save(np.concatenate((obs, self.obs_real), axis=1), count_total, frq)
 
                 if key_comm.timestep == 0:
                     # action_last[:] = action[:]
-                    q_zero[:] = q[:]
+                    q_zero[:] = 0.
 
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机缓慢置于初始位置。
                     action[:] = self.cfg.env.default_dof_pos[:] * (1.0 // self.cfg.env.action_scale)
-                    target_q[:] = self.cfg.env.default_dof_pos[:]
-                    kp[:] = self.cfg.robot_config.kps_stand[:]
-                    kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepTest:
                     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
                     action[:] = 0.
-                    target_q[:] = 0.
-                    kp[:] = self.cfg.robot_config.kps_stand[:]
-                    kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作
-                    action[:] = policy(torch.tensor(obs_clip))[0].detach().numpy()
-                    # print(f'net[2]={a_temp[2]} ', end='')
-
-                    kp[:] = self.cfg.robot_config.kps[:]
-                    kd[:] = self.cfg.robot_config.kds[:]
-                    # target_q = action * self.cfg.env.action_scale
-                    target_q[:] = action * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    action[:] = policy(torch.tensor(obs))[0].detach().numpy()
 
                 else:
                     print('退出')
-
-                # 插值
-                if key_comm.timestep < count_max_merge:
-                    target_q[:] = (q_last[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                                   + target_q[:] / count_max_merge * (key_comm.timestep + 1))
-
-                # print(f'action[2]={action[2]}, action_scaled[2]={action_scaled[2]},')
-                # action = np.clip(action,
-                #                  self.cfg.env.joint_limit_min,
-                #                  self.cfg.env.joint_limit_max)
-                # target_q[:] = action_scaled[:]
-                target_q = np.clip(target_q, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)
-                # 将神经网络生成的，左右脚的pitch、row位置，映射成关节电机角度
-                p1, p2, p3, p4 =\
-                    convert_p_ori_2_joint(target_q[4], target_q[5], target_q[10], target_q[11])
-
-                target_q[4], target_q[5], target_q[10], target_q[11] = p1, p2, p3, p4
-                # target_dq = np.zeros(self.cfg.env.num_actions, dtype=np.double)
-                # Generate PD control
-                # tau = self.pd_control(target_q, q, self.cfg.robot_config.kps,
-                #                       target_dq, dq, self.cfg.robot_config.kds)  # Calc torques
-                # tau = np.clip(tau, -self.cfg.robot_config.tau_limit, self.cfg.robot_config.tau_limit)  # Clamp torques
-
-                # !!!!!!!! send target_q to lcm
-                if key_comm.stepCalibrate:
-                    self.publish_action(target_q, kp, kd)
-                    # pass
-                elif key_comm.stepNet:
-                    self.publish_action(target_q, kp, kd)
-                    # pass
-                else:
-                    pass
 
                 key_comm.timestep += 1
                 count_total += 1
@@ -265,7 +199,7 @@ class DeployCfg:
 
     class env:
         dt = 0.01
-        step_freq = 1.5  # Hz
+        step_freq = 2  # Hz
         num_single_obs = 47  # 2+3+3+3+10+10+10+1
 
         action_scale = 0.25
@@ -273,23 +207,23 @@ class DeployCfg:
         num_actions = 12
 
 
-        default_dof_pos = np.array([-0.1, 0.0, 0.21, -0.53, 0.32, 0.1,
-                                   0.1, 0.0, 0.21, -0.53, 0.32, -0.1], dtype=np.float32)
+        default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.32, 0.0,
+                                   0.0, 0.0, 0.21, -0.53, 0.32, -0.0], dtype=np.float32)
 
         joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8, -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
         joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.8, 0.5, 0.5, 0.28, 1.15, -0.05, 0.5, 0.8], dtype=np.float32)
 
     class normalization:
         class obs_scales:
-            lin_vel = 2.0
+            lin_vel = 1.0
             ang_vel = 0.25
             dof_pos = 1.0
             dof_vel = 0.05
             quat = 1.
             height_measurements = 5.0
 
-        clip_observations = 18.
-        clip_actions = 18.
+        clip_observations = 100.
+        clip_actions = 100.
 
     class cmd:
         vx = 0.0  # 0.5

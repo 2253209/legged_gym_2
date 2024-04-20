@@ -49,14 +49,17 @@ class DeployCfg:
 
     class env:
         dt = 0.01
-        num_actions = 12
-        num_obs_real = 36  # 12+12+12
-        num_obs_net = 47  # 2+3+3+3+12+12+12
-        action_scale = 0.1
         step_freq = 2.  # Hz
-
+        num_actions = 12
+        num_obs_net = 47  # 2+3+3+3+12+12+12
+        num_obs_robot = 36  # 12+12+12
+        action_scale = 0.1
+        # 神经网络默认初始状态
         default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.32, 0.0,
                                     0.0, 0.0, 0.21, -0.53, 0.32, -0.0], dtype=np.float32)
+        # 真机默认初始状态
+        default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.32, -0.32,
+                                    0.0, 0.0, 0.21, -0.53, -0.32, 0.32], dtype=np.float32)
 
         joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8, -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
         joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.8, 0.5, 0.5, 0.28, 1.15, -0.05, 0.5, 0.8], dtype=np.float32)
@@ -70,8 +73,8 @@ class DeployCfg:
             quat = 1.
             height_measurements = 5.0
 
-        clip_observations = 18.
-        clip_actions = 10.
+        clip_observations = 100.
+        clip_actions = 100.
 
     class cmd:
         vx = 0.0  # 0.5
@@ -93,7 +96,7 @@ class Deploy:
         self.cfg = cfg
         self.log_path = path
         self.obs_net = np.zeros((1, cfg.env.num_obs_net), dtype=np.float32)
-        self.obs_real = np.zeros((1, cfg.env.num_obs_real), dtype=np.float32)
+        self.obs_robot = np.zeros((1, cfg.env.num_obs_robot), dtype=np.float32)
 
     def publish_action(self, action, kp, kd):
         command_for_robot = pd_targets_lcmt()
@@ -123,21 +126,21 @@ class Deploy:
         eu_ang = quaternion_to_euler_array(quat)
         return q, dq, eu_ang, omega
 
-    def combine_obs_net(self, cos_pos, omega, eu_ang, pos_net, vel_net, action_net):
-        self.obs_net[0, :2] = cos_pos[0, :2]
+    def combine_obs_net(self, phase, omega, eu_ang, pos, vel, action):
+        self.obs_net[0, :2] = phase[0, :]
         self.obs_net[0, 2] = self.cfg.cmd.vx * self.cfg.normalization.obs_scales.lin_vel  # 1
         self.obs_net[0, 3] = self.cfg.cmd.vy * self.cfg.normalization.obs_scales.lin_vel  # 1
         self.obs_net[0, 4] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
         self.obs_net[0, 5:8] = omega[:3] * self.cfg.normalization.obs_scales.ang_vel  # 3
         self.obs_net[0, 8:11] = eu_ang[:3] * self.cfg.normalization.obs_scales.quat  # 3
-        self.obs_net[0, 11:23] = (pos_net - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
-        self.obs_net[0, 23:35] = vel_net[:] * self.cfg.normalization.obs_scales.dof_vel  # 10
-        self.obs_net[0, 35:47] = action_net[:]  # 10
+        self.obs_net[0, 11:23] = (pos - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
+        self.obs_net[0, 23:35] = vel * self.cfg.normalization.obs_scales.dof_vel  # 10
+        self.obs_net[0, 35:47] = action  # 10
 
-    def combine_obs_real(self, pos_real, vel_real, action_real):
-        self.obs_real[0, 0:12] = pos_real[:]
-        self.obs_real[0, 12:24] = vel_real[:]
-        self.obs_real[0, 24:36] = action_real[:]
+    def combine_obs_real(self, pos, vel, action):
+        self.obs_robot[0, 0:12] = pos
+        self.obs_robot[0, 12:24] = vel
+        self.obs_robot[0, 24:36] = action
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
         """
@@ -147,10 +150,9 @@ class Deploy:
 
     def run_robot(self, policy):
         # 从真机获取和发送给真机的值
-        action_real = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
-        pos_real = np.zeros_like(action_real)
-        vel_real = np.zeros_like(action_real)
-        action_li = np.zeros_like(action_real)
+        action_robot = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+        pos_robot = np.zeros_like(action_robot)
+        vel_robot = np.zeros_like(action_robot)
 
         # 从神经网络获取和发送给网络的值
         action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
@@ -159,8 +161,8 @@ class Deploy:
         phase = np.zeros((1, 1), dtype=np.float32)
         cos_pos = np.zeros((1, 2), dtype=np.float32)
 
-        pos_net_last = np.zeros_like(pos_real)
-        pos_real_0 = np.zeros_like(pos_real)
+        pos_last = np.zeros_like(pos_robot)
+        pos_0 = np.zeros_like(pos_robot)
 
         kp = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
         kd = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
@@ -174,7 +176,7 @@ class Deploy:
         key_comm = KeyCommand()
         key_comm.start()
         count_total = 0
-        count_max_merge = 30
+        count_max_merge = 50
 
         sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_long())
 
@@ -193,25 +195,26 @@ class Deploy:
                 current_time = time.time()
 
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
-                pos_real, vel_real, eu_ang, omega = self.get_obs(es)
-                pos_real_clip = np.clip(pos_real, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
+                pos_robot, vel_robot, eu_ang, omega = self.get_obs(es)
+                pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
+                # pos_robot[:] = self.cfg.env.default_joint_pos[:]
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
                     # print(q[4], q[5], q[10], q[11] )
                     p1, p2, p3, p4, v1, v2, v3, v4 = \
-                        convert_pv_joint_2_ori(pos_real_clip[4], pos_real_clip[5], pos_real_clip[10], pos_real_clip[11],
-                                               vel_real[4], vel_real[5], vel_real[10], vel_real[11])
-                    pos_net[:] = pos_real_clip[:]
-                    vel_net[:] = vel_real[:]
+                        convert_pv_joint_2_ori(pos_robot[4], pos_robot[5], pos_robot[10], pos_robot[11],
+                                               vel_robot[4], vel_robot[5], vel_robot[10], vel_robot[11])
+                    pos_net[:] = pos_robot[:]
+                    vel_net[:] = vel_robot[:]
                     pos_net[[4, 5, 10, 11]] = p1, p2, p3, p4
                     vel_net[[4, 5, 10, 11]] = v1, v2, v3, v4
 
-                    pos_net_last[:] = pos_net[:]
+                    pos_last[:] = pos_net[:]
                 except Exception as e:
-                    print(pos_real[4], pos_real[5], pos_real[10], pos_real[11])
+                    print(pos_robot[4], pos_robot[5], pos_robot[10], pos_robot[11])
                     print(e)
-                    pos_net[:] = pos_net_last[:]
+                    pos_net[:] = pos_last[:]
 
                 # 2.2 步态生成
                 phase[0, 0] = (key_comm.timestep * self.cfg.env.dt * self.cfg.env.step_freq) * 2.
@@ -221,71 +224,72 @@ class Deploy:
                 cos_pos[0, 0] = cos_values * mask_right
                 cos_pos[0, 1] = cos_values * mask_left
 
-                # 3.1 组合真机的OBS, 其中action_real是上一帧的关节目标位置,p和v都是未经缩放的.
-                self.combine_obs_real(pos_real, vel_real, action_real)
-
-                # 3.2 组合给神经网络的OBS, 其中action_net是上一帧神经网络生成的动作.其他值都经过缩放
+                # 3.1 组合给神经网络的OBS, 其中action_net是上一帧神经网络生成的动作.其他值都经过缩放,P值还减去了默认姿势
                 self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
 
+                # 3.2 组合从真机得到的OBS, 其中action_real是上一帧的关节目标位置,p和v都是原始的.
+                self.combine_obs_real(pos_robot, vel_robot, action_robot)
+
                 # 3.3 !!!限制OBS可能出现的大数值!!!
-                obs_clip = np.clip(self.obs_net, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
+                # obs_clip = np.clip(self.obs_net, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
                 # 3.4 将obs写入文件，在logs/dep_log/下
-                sp_logger.save(np.concatenate((obs_clip, self.obs_real), axis=1), count_total, frq)
+                sp_logger.save(np.concatenate((self.obs_net, self.obs_robot), axis=1), count_total, frq)
 
                 # 4.1 当操纵者改变模式时,获取当前关节位置做1秒插值
                 if key_comm.timestep == 0:
-                    pos_real_0[:] = pos_real[:]
+                    pos_0[:] = pos_robot[:]
+                    # pos_real_0[:] = 0.
 
                 # 4.2 操纵者改变模式
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。
                     action_net[:] = self.cfg.env.default_dof_pos[:] * (1.0 // self.cfg.env.action_scale)
-                    action_real[:] = self.cfg.env.default_dof_pos[:]
+                    action_robot[:] = self.cfg.env.default_dof_pos[:]
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepTest:
                     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
                     action_net[:] = 0.
-                    action_real[:] = 0.
+                    action_robot[:] = 0.
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
-                    action_net[:] = policy(torch.tensor(obs_clip))[0].detach().numpy()
+                    action_net[:] = policy(torch.tensor(self.obs_net))[0].detach().numpy()
+
+                    # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
+                    action_robot[:] = action_net[:] * self.cfg.env.action_scale + self.cfg.env.default_dof_pos[:]
+                    # print(action_real)
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
 
-                    # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
-                    action_li[:] = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
-                    # print(action_real)
                 else:
                     print('退出')
 
                 # 5.1 插值平滑输出
                 if key_comm.timestep < count_max_merge:
-                    action_li[:] = (pos_real_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                                    + action_li[:] / count_max_merge * (key_comm.timestep + 1))
+                    action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
+                                       + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
 
                 # 5.2 将神经网络输出的踝部关节角度,转换成实际电机指令
                 p1, p2, p3, p4 = (
-                    convert_p_ori_2_joint(action_li[4], action_li[5], action_li[10], action_li[11]))
+                    convert_p_ori_2_joint(action_robot[4], action_robot[5], action_robot[10], action_robot[11]))
 
-                action_real[:] = action_li[:]
-                action_real[[4, 5, 10, 11]] = p1, p2, p3, p4
-                action_real = np.clip(action_real,
+                action_robot[[4, 5, 10, 11]] = p1, p2, p3, p4
+                action_robot = np.clip(action_robot,
                                       self.cfg.env.joint_limit_min,
                                       self.cfg.env.joint_limit_max)
 
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
-                    self.publish_action(action_real, kp, kd)
+                    self.publish_action(action_robot, kp, kd)
                 elif key_comm.stepTest:
                     pass
                 elif key_comm.stepNet:
-                    self.publish_action(action_real, kp, kd)
+                    self.publish_action(action_robot, kp, kd)
                     # pass
                 else:
                     pass
