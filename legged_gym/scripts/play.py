@@ -54,7 +54,6 @@ def play(args):
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
     obs = env.get_observations()
-    obs_log = torch.zeros((env_cfg.env.num_envs, 59))
     # load policy
     train_cfg.runner.resume = True
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
@@ -76,20 +75,24 @@ def play(args):
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
     sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_short())
-    t1=0
-    t0=0
+    t1 = time.time()
+    t0 = 0
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
-        env.commands[:, 0] = 0.1
+
+        # 保存play save
+        # obs[:, 2:35] = 0.
+        sloger.save(torch.cat([obs, actions * env_cfg.control.action_scale], dim=1), i, t1 - t0)
+        t0 = t1
+        t1 = time.time()
+
+        # 统一设置指令
+        env.commands[:, 0] = 0.0
         env.commands[:, 1] = 0.0
         env.commands[:, 2] = 0.0
+
         obs, _, rews, dones, infos = env.step(actions.detach())
-        t1=time.time()
-        obs_log[:, 0:47] = obs[:, :]
-        obs_log[:, -12:] = actions[:, :] * env_cfg.control.action_scale
-        sloger.save(obs_log, i, t1 - t0)
-        t0 = t1
         if RECORD_FRAMES:
             if i % 2:
                 filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")

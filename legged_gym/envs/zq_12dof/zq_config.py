@@ -75,7 +75,7 @@ class Zq12Cfg(LeggedRobotCfg):
                    'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 4.0, 'JOINT_Z6': 4.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.2
+        action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 
@@ -132,6 +132,7 @@ class Zq12Cfg(LeggedRobotCfg):
         push_robots = True
         push_interval_s = 5
         max_push_vel_xy = 0.5
+        randomize_init_state = True
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.95
@@ -178,7 +179,7 @@ class Zq12Cfg(LeggedRobotCfg):
             action_rate = -0.
             stand_still = -0.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
             no_fly = 0.0  # 2. 奖励：两脚都在地上，有一定压力
-            target_joint_pos = 2.0  # 3. 惩罚 身体关节角度 偏离
+            target_joint_pos = 5.0  # 3. 惩罚 身体关节角度 偏离
             # body_feet_dist = -1.0
 
 
@@ -188,7 +189,7 @@ class Zq12CfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
         experiment_name = 'zq12'
-        max_iterations = 30000
+        max_iterations = 10000
         # logging
         save_interval = 400
         # checkpoint = '8400'
