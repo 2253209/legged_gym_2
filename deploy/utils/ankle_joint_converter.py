@@ -184,11 +184,7 @@ def forward_kinematics(theta_ref, leg='right' or 'left'):
         # print(J_c_k)
         # print("inv_J: ")
         # print(np.linalg.pinv(J_c_k))
-
-    _, _, r_C, r_bar, r_rod, THETA_k = inverse_kinematics(l_bar, l_rod, l_spacing, x_c_k[0], x_c_k[1], leg)
-    J_c_k = jacobian(r_C, r_bar, r_rod, x_c_k[1], s_11, s_21)
-    j_c_k = np.linalg.pinv(J_c_k)
-    return x_c_k, J_c_k, j_c_k
+    return x_c_k, j_c_k
 
 
 # 解耦
@@ -224,8 +220,8 @@ def convert_p_ori_2_joint(p1, p2, p3, p4):  # 4/5/10/11
             -joint_p_left[1], joint_p_left[0])  # 4\5\10\11
 
 def convert_p_joint_2_ori(p1, p2, p3, p4):  # 4\5\10\11
-    ori_right, _, jac_right = forward_kinematics(np.array([p1, -p2]), leg='right')
-    ori_left, _, jac_left = forward_kinematics(np.array([-p4, p3]), leg='left')
+    ori_right, jac_right = forward_kinematics(np.array([p1, -p2]), leg='right')
+    ori_left, jac_left = forward_kinematics(np.array([-p4, p3]), leg='left')
 
     return (ori_right[1], ori_right[0],
             -ori_left[1], -ori_left[0])
@@ -239,8 +235,8 @@ def convert_pv_ori_2_joint(p1, p2, p3, p4, v1, v2, v3, v4):  # 4/5/10/11
             joint_v_right[0], -joint_v_right[1], -joint_v_left[1], joint_v_left[0],)  # 4\5\10\11
 
 def convert_pv_joint_2_ori(p1, p2, p3, p4, v1, v2, v3, v4):  # 4\5\10\11
-    ori_right, _, jac_right = forward_kinematics(np.array([p1, -p2]), leg='right')
-    ori_left, _, jac_left = forward_kinematics(np.array([-p4, p3]), leg='left')
+    ori_right, jac_right = forward_kinematics(np.array([p1, -p2]), leg='right')
+    ori_left, jac_left = forward_kinematics(np.array([-p4, p3]), leg='left')
     ori_v_right = jac_right @ np.array([v1, -v2])  # 2*2
     ori_v_left = jac_left @ np.array([-v4, v3])
 

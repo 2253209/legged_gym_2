@@ -101,7 +101,7 @@ class Zq12Cfg(LeggedRobotCfg):
 
     class commands(LeggedRobotCfg.commands):
         step_joint_offset = 0.30  # rad
-        step_freq = 1.5  # HZ （e.g. cycle-time=0.66）
+        step_freq = 1.  # HZ （e.g. cycle-time=0.66）
 
         class ranges(LeggedRobotCfg.commands.ranges):
             lin_vel_x = [-0.3, 0.3]  # min max [m/s]
