@@ -71,8 +71,8 @@ class Zq12Cfg(LeggedRobotCfg):
         stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 200.0, 'JOINT_Y6': 200.0,
                      'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 200.0, 'JOINT_Z6': 200.0,
                      }  # [N*m/rad]
-        damping = {'JOINT_Y1': 10.0, 'JOINT_Y2': 10.0, 'JOINT_Y3': 10.0, 'JOINT_Y4': 10.0, 'JOINT_Y5': 4.0, 'JOINT_Y6': 4.0,
-                   'JOINT_Z1': 10.0, 'JOINT_Z2': 10.0, 'JOINT_Z3': 10.0, 'JOINT_Z4': 10.0, 'JOINT_Z5': 4.0, 'JOINT_Z6': 4.0,
+        damping = {'JOINT_Y1': 5.0, 'JOINT_Y2': 5.0, 'JOINT_Y3': 5.0, 'JOINT_Y4': 5.0, 'JOINT_Y5': 3.0, 'JOINT_Y6': 3.0,
+                   'JOINT_Z1': 5.0, 'JOINT_Z2': 5.0, 'JOINT_Z3': 5.0, 'JOINT_Z4': 5.0, 'JOINT_Z5': 3.0, 'JOINT_Z6': 3.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.1
@@ -101,17 +101,17 @@ class Zq12Cfg(LeggedRobotCfg):
 
     class commands(LeggedRobotCfg.commands):
         step_joint_offset = 0.30  # rad
-        step_freq = 1.  # HZ （e.g. cycle-time=0.66）
+        step_freq = 0.2  # HZ （e.g. cycle-time=0.66）
 
         class ranges(LeggedRobotCfg.commands.ranges):
-            lin_vel_x = [-0.3, 0.3]  # min max [m/s]
-            lin_vel_y = [-0.0, 0.0]   # min max [m/s]
-            ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
-            heading = [-0.3, 0.3]
-            # lin_vel_x = [-0.0, 0.0]  # min max [m/s]
-            # lin_vel_y = [-0.0, 0.0]  # min max [m/s]
-            # ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
-            # heading = [-0, 0]
+            # lin_vel_x = [-0.3, 0.3]  # min max [m/s]
+            # lin_vel_y = [-0.0, 0.0]   # min max [m/s]
+            # ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
+            # heading = [-0.3, 0.3]
+            lin_vel_x = [-0.0, 0.0]  # min max [m/s]
+            lin_vel_y = [-0.0, 0.0]  # min max [m/s]
+            ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
+            heading = [-0, 0]
 
     class asset(LeggedRobotCfg.asset):
         # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
