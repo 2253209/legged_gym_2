@@ -197,7 +197,9 @@ class Deploy:
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
                 pos_robot, vel_robot, eu_ang, omega = self.get_obs(es)
                 pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
-                # pos_robot[:] = self.cfg.env.default_joint_pos[:]
+
+                # 调试,上机时关掉
+                pos_robot[:] = self.cfg.env.default_joint_pos[:]
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
@@ -243,8 +245,8 @@ class Deploy:
 
                 # 4.2 操纵者改变模式
                 if key_comm.stepCalibrate:
-                    # 当状态是“静态归零模式”时：将所有电机设置初始姿态。
-                    action_net[:] = self.cfg.env.default_dof_pos[:] * (1.0 // self.cfg.env.action_scale)
+                    # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
+                    action_net[:] = 0.
                     action_robot[:] = self.cfg.env.default_dof_pos[:]
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
@@ -269,12 +271,7 @@ class Deploy:
                 else:
                     print('退出')
 
-                # 5.1 插值平滑输出
-                if key_comm.timestep < count_max_merge:
-                    action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                                       + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
-
-                # 5.2 将神经网络输出的踝部关节角度,转换成实际电机指令
+                # 5.1 将神经网络输出的踝部关节角度,转换成实际电机指令
                 p1, p2, p3, p4 = (
                     convert_p_ori_2_joint(action_robot[4], action_robot[5], action_robot[10], action_robot[11]))
 
@@ -282,6 +279,11 @@ class Deploy:
                 action_robot = np.clip(action_robot,
                                       self.cfg.env.joint_limit_min,
                                       self.cfg.env.joint_limit_max)
+
+                # 5.2 插值平滑输出
+                if key_comm.timestep < count_max_merge:
+                    action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
+                                       + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
 
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
