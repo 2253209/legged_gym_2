@@ -199,7 +199,7 @@ class Deploy:
                 pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
 
                 # 调试,上机时关掉
-                pos_robot[:] = self.cfg.env.default_joint_pos[:]
+                # pos_robot[:] = self.cfg.env.default_joint_pos[:]
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
@@ -260,10 +260,10 @@ class Deploy:
 
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
-                    action_net[:] = policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                    action_net = policy(torch.tensor(self.obs_net))[0].detach().numpy()
 
                     # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
-                    action_robot[:] = action_net[:] * self.cfg.env.action_scale + self.cfg.env.default_dof_pos[:]
+                    action_robot[:] = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
                     # print(action_real)
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
@@ -277,8 +277,8 @@ class Deploy:
 
                 action_robot[[4, 5, 10, 11]] = p1, p2, p3, p4
                 action_robot = np.clip(action_robot,
-                                      self.cfg.env.joint_limit_min,
-                                      self.cfg.env.joint_limit_max)
+                                       self.cfg.env.joint_limit_min,
+                                       self.cfg.env.joint_limit_max)
 
                 # 5.2 插值平滑输出
                 if key_comm.timestep < count_max_merge:

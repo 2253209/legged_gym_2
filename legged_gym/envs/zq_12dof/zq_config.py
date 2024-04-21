@@ -123,6 +123,8 @@ class Zq12Cfg(LeggedRobotCfg):
         flip_visual_attachments = False
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
         terminate_body_height = 0.4
+        disable_gravity = False
+        fix_base_link = True
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = False
@@ -155,11 +157,11 @@ class Zq12Cfg(LeggedRobotCfg):
             # ang_vel_xy = -0.0
             # feet_contact_forces = -0.
 
-            termination = -5.  # 4. 不倒
+            termination = -0.  # 4. 不倒
             tracking_lin_vel = 0.
-            tracking_lin_x_vel = 1.0  # 6. 奖励速度为0
-            tracking_lin_y_vel = 1.0  # 6. 奖励速度为0
-            tracking_ang_vel = 1.0
+            tracking_lin_x_vel = 0.0  # 6. 奖励速度为0
+            tracking_lin_y_vel = 0.0  # 6. 奖励速度为0
+            tracking_ang_vel = 0.0
             lin_vel_z = -0.0
             ang_vel_xy = -0.0
             orientation = -0.0  # 5. 重力投影

@@ -50,7 +50,9 @@ def play(args):
     env_cfg.noise.add_noise = False
     env_cfg.domain_rand.randomize_friction = False
     env_cfg.domain_rand.push_robots = False
-
+    env_cfg.domain_rand.randomize_base_mass = False
+    env_cfg.domain_rand.randomize_init_state = False
+    
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
     obs = env.get_observations()
@@ -80,6 +82,8 @@ def play(args):
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
+
+        actions[:, :] = env.default_dof_pos[0, :]
 
         # 保存play save
         # obs[:, 2:35] = 0.

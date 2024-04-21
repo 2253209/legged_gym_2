@@ -101,6 +101,18 @@ class Zq12Robot(LeggedRobot):
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
 
+    def _reset_dofs(self, env_ids):
+        if self.cfg.domain_rand.randomize_init_state:
+            self.dof_pos[env_ids] = self.default_dof_pos
+        else:
+            self.dof_pos[env_ids] = self.default_dof_pos * torch_rand_float(0.5, 1.5, (len(env_ids), self.num_dof), device=self.device)
+        self.dof_vel[env_ids] = 0.
+
+        env_ids_int32 = env_ids.to(dtype=torch.int32)
+        self.gym.set_dof_state_tensor_indexed(self.sim,
+                                              gymtorch.unwrap_tensor(self.dof_state),
+                                              gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
+
     def _reset_root_states(self, env_ids):
         """ 重置ROOT状态所选环境的身体姿态
             随机给+-17度的 R P Y 角度
@@ -119,15 +131,16 @@ class Zq12Robot(LeggedRobot):
             for index, env_id in enumerate(env_ids):
                 if self.cfg.domain_rand.randomize_init_state:
                     self.root_states[env_id, 3:7] = quat_from_euler_xyz(rpy[index, 0], rpy[index, 1], rpy[index, 2])
-                # self.root_states[env_id, 3:7] = quat_from_euler_xyz(torch.as_tensor(0.0), torch.as_tensor(1.57), torch.as_tensor(0.0))
                 self.init_position[env_id, 0:3] = self.root_states[env_id, 0:3]
                 self.init_position[env_id, 2] -= 0.1
         #
         # base velocities
-        self.root_states[env_ids, 7:13] = torch_rand_float(-0.05, 0.05, (len(env_ids), 6), device=self.device) # [7:10]: lin vel, [10:13]: ang vel
+        if self.cfg.domain_rand.randomize_init_state:
+            self.root_states[env_ids, 7:13] = torch_rand_float(-0.05, 0.05, (len(env_ids), 6), device=self.device) # [7:10]: lin vel, [10:13]: ang vel
+
         if self.cfg.asset.fix_base_link:
             self.root_states[env_ids, 7:13] = 0
-            self.root_states[env_ids, 2] += 1.8
+            self.root_states[env_ids, 2] += 1.0
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_actor_root_state_tensor_indexed(self.sim,
                                                      gymtorch.unwrap_tensor(self.root_states),
