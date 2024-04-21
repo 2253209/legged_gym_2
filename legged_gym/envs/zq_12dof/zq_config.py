@@ -101,7 +101,7 @@ class Zq12Cfg(LeggedRobotCfg):
 
     class commands(LeggedRobotCfg.commands):
         step_joint_offset = 0.30  # rad
-        step_freq = 2.  # HZ （e.g. cycle-time=0.66）
+        step_freq = 1.5  # HZ （e.g. cycle-time=0.66）
 
         class ranges(LeggedRobotCfg.commands.ranges):
             lin_vel_x = [-0.3, 0.3]  # min max [m/s]
@@ -129,12 +129,12 @@ class Zq12Cfg(LeggedRobotCfg):
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = False
         friction_range = [0.8, 1.2]
-        randomize_base_mass = True
+        randomize_base_mass = False
         added_mass_range = [-1., 1.]
-        push_robots = True
+        push_robots = False
         push_interval_s = 5
         max_push_vel_xy = 0.5
-        randomize_init_state = True
+        randomize_init_state = False
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.95
@@ -178,7 +178,7 @@ class Zq12Cfg(LeggedRobotCfg):
             feet_stumble = -0.0
             feet_contact_forces = -0.
             #
-            action_rate = -0.
+            action_rate = -0.01
             stand_still = -0.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
             no_fly = 0.0  # 2. 奖励：两脚都在地上，有一定压力
             target_joint_pos = 5.0  # 3. 惩罚 身体关节角度 偏离

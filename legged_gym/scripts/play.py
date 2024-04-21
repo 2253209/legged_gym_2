@@ -83,7 +83,7 @@ def play(args):
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
 
-        actions[:, :] = env.default_dof_pos[0, :]
+        # actions[:, :] = env.default_dof_pos[0, :]
 
         # 保存play save
         # obs[:, 2:35] = 0.
