@@ -14,6 +14,21 @@ style = ttk.Style()
 style.configure("TLabel", font=("Helvetica", 12))
 style.configure("TButton", font=("Helvetica", 12), padding=10)
 
+init_pos = {
+    'r_act_0': 0.,
+    'r_act_1': 0.,
+    'r_act_2': 0.21,
+    'r_act_3': -0.53,
+    'r_act_4': 0.32,
+    'r_act_5': 0.,
+    'r_act_6': 0.,
+    'r_act_7': 0.,
+    'r_act_8': 0.21,
+    'r_act_9': -0.53,
+    'r_act_10': 0.32,
+    'r_act_11': 0.,
+}
+
 # 创建一个Pandas DataFrame来存储CSV数据
 data_frame = pd.DataFrame()
 
@@ -45,8 +60,16 @@ def plot_graph(selected_columns):
             fig.clf()  # 清除Figure对象中的所有Artist
             ax = fig.add_subplot(111)  # 重新添加子图
 
+
             for column in selected_columns:
                 ax.plot(data_frame[column], marker='.', linestyle='-', label=column)
+                # if 'n_act' in column:
+                #     ax.plot(data_frame[column] * 0.1, marker='.', linestyle='-', label=column)
+                # else:
+                #     if init_pos.get(column) is None:
+                #         ax.plot(data_frame[column], marker='.', linestyle='-', label=column)
+                #     else:
+                #         ax.plot(data_frame[column] - init_pos.get(column), marker='.', linestyle='-', label=column)
             ax.legend(loc='best')
             canvas.draw()
         except Exception as e:

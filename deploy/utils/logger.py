@@ -42,7 +42,7 @@ def get_title_long():
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(83):
+    for k in range(95):
         if k == 0:
             label = 'sin'
             i = 0
@@ -72,6 +72,9 @@ def get_title_long():
             i = 0
         elif k == 71:
             label = 'r_act'
+            i = 0
+        elif k == 83:
+            label = 'uf_act'
             i = 0
         title += f'{label}_{i},'
         i += 1

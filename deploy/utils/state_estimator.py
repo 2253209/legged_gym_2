@@ -6,6 +6,16 @@ import numpy as np
 from deploy.lcm_types.state_estimator_lcmt import state_estimator_lcmt
 from deploy.lcm_types.leg_control_data_lcmt import leg_control_data_lcmt
 
+
+@ staticmethod
+def filter_mean(buffer, value):
+    buffer = np.roll(buffer, -1, axis=0)
+    buffer[-1] = value
+
+    # Calculate the mean of the buffer
+    return buffer.mean(axis=0)
+
+
 class StateEstimator:
     def __init__(self, lc):
         self.lc = lc
@@ -16,40 +26,28 @@ class StateEstimator:
         self.omegaBody = np.zeros(3, dtype=np.float32)
 
         self.buffer_vel = np.zeros((5, 12), dtype=np.float32)
+        self.buffer_pos = np.zeros((5, 12), dtype=np.float32)
         self.buffer_omg = np.zeros((5, 3), dtype=np.float32)
 
         self.state_subscription = self.lc.subscribe("state_estimator", self._state_cb)
         self.leg_subscription = self.lc.subscribe("leg_control_data_RL", self._leg_cb)
         self.running = True
 
-    def filter_vel(self, value):
-        self.buffer_vel = np.roll(self.buffer_vel, -1, axis=0)
-        self.buffer_vel[-1] = value
-
-        # Calculate the mean of the buffer
-        mean_value = self.buffer_vel.mean(axis=0)
-        return mean_value
-
-    def filter_omg(self, value):
-        self.buffer_omg = np.roll(self.buffer_omg, -1, axis=0)
-        self.buffer_omg[-1] = value
-
-        # Calculate the mean of the buffer
-        mean_value = self.buffer_omg.mean(axis=0)
-        return mean_value
-
     def _state_cb(self, channel, data):
         # print("update state")
         msg = state_estimator_lcmt.decode(data)
         self.quat = np.array(msg.quat)
-        self.omegaBody = self.filter_omg(np.array(msg.omegaBody))
+        # self.omegaBody = filter_mean(self.buffer_omg, np.array(msg.omegaBody))
+        self.omegaBody = np.array(msg.omegaBody)
         # print(f"update imudata {msg.id}")
 
     def _leg_cb(self, channel, data):
         # print("update leg")
         msg = leg_control_data_lcmt.decode(data)
+        # self.joint_pos = filter_mean(self.buffer_pos, np.array(msg.q))
+        # self.joint_vel = filter_mean(self.buffer_vel, np.array(msg.qd))
         self.joint_pos = np.array(msg.q)
-        self.joint_vel = self.filter_vel(np.array(msg.qd))
+        self.joint_vel = np.array(msg.qd)
         # print(f"update legdata {msg.id}")
 
     def poll(self, cb=None):
