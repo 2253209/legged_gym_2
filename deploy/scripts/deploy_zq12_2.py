@@ -204,8 +204,8 @@ class Deploy:
 
                 # 调试,上机时关掉
                 # pos_robot[:] = self.cfg.env.default_joint_pos[:]
-                eu_ang[:] = 0.
-                omega[:] = 0.
+                # eu_ang[:] = 0.
+                # omega[:] = 0.
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
@@ -219,7 +219,7 @@ class Deploy:
                     vel_net[[4, 5, 10, 11]] = v1, v2, v3, v4
 
                     # 用积分速度代替直接获取的速度
-                    vel_net[:] = 0.  #(pos_net - pos_last) / self.cfg.env.dt
+                    # vel_net[:] = 0.  #(pos_net - pos_last) / self.cfg.env.dt
                     # print('pos', ' '.join([f'{x:.4f}' for x in pos_net]))
                     # print('last', ' '.join([f'{x:.4f}' for x in pos_last]))
                     # print('vel', ' '.join([f'{x:.4f}' for x in vel_net]))
@@ -293,7 +293,6 @@ class Deploy:
                 else:
                     print('退出')
 
-
                 # 5.1 将神经网络输出的踝部关节角度,转换成实际电机指令
                 p1, p2, p3, p4 = (
                     convert_p_ori_2_joint(action_robot[4], action_robot[5], action_robot[10], action_robot[11]))
@@ -311,6 +310,7 @@ class Deploy:
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
                     self.publish_action(action_robot, kp, kd)
+                    # pass
                 elif key_comm.stepTest:
                     pass
                 elif key_comm.stepNet:
