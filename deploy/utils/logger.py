@@ -89,14 +89,14 @@ class SimpleLogger:
         filename = f"{path}/log_{formatted_time}.csv"
         if not os.path.exists(path):
             os.mkdir(path)
-        self.file = open(filename, "a+")
+        self.file = open(filename, "w")
         print(f"Saving log! Path: {filename}")
         self.file.write(f'{title}\n')
 
     def save(self, obs, step, time):
         for row in obs:
             k = 0
-            # self.file.write('%d,%d,' % (step, int(time * 10 ** 3)))  # us
+            self.file.write('%d,%d,' % (step, int(time * 10 ** 3)))  # us
             for index, item in enumerate(row):
                 # if index in [5,6,7,8,9,10,59,60,61,62,63,64,65,66,67,68,69,70]:
                 #     self.file.write(' %.4f,' % item)

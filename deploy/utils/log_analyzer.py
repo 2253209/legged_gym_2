@@ -29,13 +29,24 @@ init_pos = {
     'r_act_11': 0.,
 }
 
+
 # 创建一个Pandas DataFrame来存储CSV数据
 data_frame = pd.DataFrame()
 
 # 选择CSV文件并读取数据的函数
 def load_csv():
     file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
-    load_file(file_path)
+    if file_path:
+        load_file(file_path)
+
+def save_csv():
+    file_path = filedialog.asksaveasfilename(
+        title='Save File',
+        defaultextension=".csv",  # 可以指定默认的文件扩展名，这里以.txt为例
+        filetypes=[('CSV files', '*.csv'), ('All files', '*.*')]  # 可以指定文件类型
+    )
+    if file_path:
+        save_file(file_path)
 
 def load_file(file_path):
     if file_path:
@@ -45,6 +56,25 @@ def load_file(file_path):
             populate_options()
         except Exception as e:
             messagebox.showerror("错误", f"读取文件失败: {e}")
+
+def save_file(file_path):
+    with open(file_path, 'w') as file:
+        try:
+            indices = b1.curselection()
+            # 根据索引获取选中项的值
+            selected_columns = [b1.get(index) for index in indices]
+            if isinstance(selected_columns, list) and len(selected_columns) > 0:
+                for column in selected_columns:
+                    file.write(f'{column},')
+                file.write('\n')
+
+                for index, row in data_frame.iterrows():
+                    for column in selected_columns:
+                        file.write(' %.4f,' % row[column])
+                    file.write('\n')
+        finally:
+            file.close()
+
 
 # 填充列选项的函数
 def populate_options():
@@ -91,6 +121,7 @@ root.config(menu=menu_bar)
 file_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="文件", menu=file_menu)
 file_menu.add_command(label="打开CSV文件", command=load_csv)
+file_menu.add_command(label="另存为", command=save_csv)
 
 # 创建列表显示区域
 list_frame = ttk.LabelFrame(root, text='列表')
