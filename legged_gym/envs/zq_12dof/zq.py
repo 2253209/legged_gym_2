@@ -30,13 +30,14 @@
 
 from time import time
 import numpy as np
+import torch
 import os
 
 from isaacgym.torch_utils import *
 from isaacgym import gymtorch, gymapi, gymutil
 
-import torch
 from typing import Tuple, Dict
+from collections import deque
 from legged_gym.envs import LeggedRobot
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
 
@@ -64,16 +65,39 @@ class Zq12Robot(LeggedRobot):
         self.switch_step_or_stand = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)  # cmd较小不需要步态的（0,1,1,0...,1,0）
         self.ref_count = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)  # 步态生成器--计数器
         self.cos_pos = torch.zeros((self.num_envs, 2), device=self.device, dtype=torch.float)  # 每个env当前步态的cos相位。如果步频变化，则可以从这里开始。
+        # 观察值的上行delay
+        self.obs_history = deque(maxlen=self.cfg.env.queue_len_obs)
+        for _ in range(self.cfg.env.queue_len_obs):
+            self.obs_history.append(torch.zeros(
+                self.num_envs, self.cfg.env.num_observations, dtype=torch.float, device=self.device))
+        # action的下行delay
+        self.action_history = deque(maxlen=self.cfg.env.queue_len_act)
+        for _ in range(self.cfg.env.queue_len_act):
+            self.action_history.append(torch.zeros(
+                self.num_envs, self.num_actions, dtype=torch.float, device=self.device))
 
+    #
     def step(self, actions):
-        # actions[:, :] = self.default_dof_pos[0, :]
-        # actions[:, 0:4] = self.default_dof_pos[0, 0:4]  # 4=action
-        # actions[:, 5:10] = self.default_dof_pos[0, 5:10]  # 10=action
-        # actions[:, 11] = self.default_dof_pos[0, 11]
-        # actions[:, :] = self.ref_dof_pos[:, :] / self.cfg.control.action_scale
+        # 从on_policy_runner进来的action，刚从act获取
+        # 步态生成
         self.ref_count += 1
         self.compute_reference_states()
-        return super().step(actions)
+
+        # 下行延迟：延长将action送往扭矩的时间
+        action_delayed = self.action_history.popleft()
+        self.action_history.append(actions)
+
+        super().step(action_delayed)
+
+        # 上行延迟：延迟获取obs,但观察到当前帧的action。
+        obs_delayed = self.obs_history.popleft()
+        self.obs_history.append(torch.clone(self.obs_buf))
+        self.obs_buf[:, 5:-self.num_actions] = obs_delayed[:, 5:-self.num_actions]
+
+        # obs：由当前sin，当前指令，延迟omega、euler、pos、vel，当前action组成。
+        self.obs_buf[:, -self.num_actions:] = actions[:, :]
+
+        return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
 
     def compute_observations(self):
         """ Computes observations
@@ -100,6 +124,11 @@ class Zq12Robot(LeggedRobot):
         # add noise if needed
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
+
+    def reset_idx(self, env_ids):
+        super().reset_idx(env_ids)
+        for i in range(self.obs_history.maxlen):
+            self.obs_history[i][env_ids] *= 0
 
     def _reset_dofs(self, env_ids):
         if self.cfg.domain_rand.randomize_init_state:
@@ -186,6 +215,7 @@ class Zq12Robot(LeggedRobot):
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
         # 在这里重置重设指令的步态生成器的初始计数值
         self.ref_count[env_ids] = 0
+
         # 设置所有env的正弦生成标志，如果cmd = 0则不生成正弦步态。
         # self.switch_step_or_stand[:] = 1
         # self.switch_step_or_stand[:] *= torch.norm(self.commands[:, :2], dim=1) > 0.2  # 1=step, 0=stand
@@ -274,3 +304,15 @@ class Zq12Robot(LeggedRobot):
         reward = torch.square(pos_dist * 10)
         # print(f'dist={pos_dist[0]}')
         return reward
+
+    def _reward_action_smoothness(self):
+        """
+        Encourages smoothness in the robot's actions by penalizing large differences between consecutive actions.
+        This is important for achieving fluid motion and reducing mechanical stress.
+        """
+        term_1 = torch.sum(torch.square(
+            self.last_actions - self.actions), dim=1)
+        term_2 = torch.sum(torch.square(
+            self.actions + self.last_last_actions - 2 * self.last_actions), dim=1)
+        term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
+        return term_1 + term_2 + term_3
