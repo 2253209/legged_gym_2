@@ -89,7 +89,7 @@ class SimpleLogger:
         filename = f"{path}/log_{formatted_time}.csv"
         if not os.path.exists(path):
             os.mkdir(path)
-        self.file = open(filename, "a+")
+        self.file = open(filename, "w")
         print(f"Saving log! Path: {filename}")
         self.file.write(f'{title}\n')
 

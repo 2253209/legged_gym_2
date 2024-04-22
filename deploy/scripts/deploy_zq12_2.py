@@ -49,7 +49,8 @@ class DeployCfg:
 
     class env:
         dt = 0.01
-        step_freq = 0.2  # Hz
+        step_freq = 1.5  # Hz
+
         num_actions = 12
         num_obs_net = 47  # 2+3+3+3+12+12+12
         num_obs_robot = 48  # 12+12+12+12
@@ -281,10 +282,10 @@ class Deploy:
                     action_robot[:] = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
                     # print(action_real)
 
-                    action_robot[0] = 0.
-                    action_robot[1] = 0.
-                    action_robot[6] = 0.
-                    action_robot[7] = 0.
+                    # action_robot[0] = 0.
+                    # action_robot[1] = 0.
+                    # action_robot[6] = 0.
+                    # action_robot[7] = 0.
 
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
@@ -342,7 +343,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_吊起5hz.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_踏步1.5hz.pt'
     policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot(policy)
