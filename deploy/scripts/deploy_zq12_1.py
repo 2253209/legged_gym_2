@@ -211,7 +211,6 @@ class Deploy:
                 # 4.1 当操纵者改变模式时,获取当前关节位置做1秒插值
                 if key_comm.timestep == 0:
                     pos_0[:] = pos_robot[:]
-                    # pos_real_0[:] = 0.
 
                 # 4.2 操纵者改变模式
                 if key_comm.stepCalibrate:
