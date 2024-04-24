@@ -27,7 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
-
+import random
 from time import time
 import numpy as np
 import torch
@@ -84,13 +84,17 @@ class Zq12Robot(LeggedRobot):
         self.compute_reference_states()
 
         # 下行延迟：延长将action送往扭矩的时间
-        action_delayed = self.action_history.popleft()
+        # action_delayed = self.action_history.popleft()
+        index_act = random.randint(0,2)
+        action_delayed = self.action_history[index_act]
         self.action_history.append(actions)
 
         super().step(action_delayed)
 
         # 上行延迟：延迟获取obs,但观察到当前帧的action。
-        obs_delayed = self.obs_history.popleft()
+        # obs_delayed = self.obs_history.popleft()
+        index_obs = random.randint(0, 2)
+        obs_delayed = self.obs_history[index_obs]
         self.obs_history.append(torch.clone(self.obs_buf))
         self.obs_buf[:, 5:-self.num_actions] = obs_delayed[:, 5:-self.num_actions]
 
