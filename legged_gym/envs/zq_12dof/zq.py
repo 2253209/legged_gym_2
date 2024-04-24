@@ -124,7 +124,8 @@ class Zq12Robot(LeggedRobot):
         # add noise if needed
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
-
+        if torch.isnan(self.obs_buf).any():
+            self.obs_buf = torch.nan_to_num(self.obs_buf, nan=0.0001)
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
         for i in range(self.obs_history.maxlen):
@@ -132,7 +133,7 @@ class Zq12Robot(LeggedRobot):
 
     def _reset_dofs(self, env_ids):
         if self.cfg.domain_rand.randomize_init_state:
-            self.dof_pos[env_ids] = self.default_dof_pos * torch_rand_float(0.5, 1.5, (len(env_ids), self.num_dof), device=self.device)
+            self.dof_pos[env_ids] = self.default_dof_pos * torch_rand_float(0.9, 1.1, (len(env_ids), self.num_dof), device=self.device)
         else:
             self.dof_pos[env_ids] = self.default_dof_pos
         self.dof_vel[env_ids] = 0.

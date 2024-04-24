@@ -161,9 +161,9 @@ class Zq12Cfg(LeggedRobotCfg):
 
             termination = -5.  # 4. 不倒
             tracking_lin_vel = 0.
-            tracking_lin_x_vel = 1.0  # 6. 奖励速度为0
-            tracking_lin_y_vel = 1.0  # 6. 奖励速度为0
-            tracking_ang_vel = 1.0
+            tracking_lin_x_vel = 4.0  # 6. 奖励速度为0
+            tracking_lin_y_vel = 4.0  # 6. 奖励速度为0
+            tracking_ang_vel = 5.0
             lin_vel_z = -0.0
             ang_vel_xy = -0.0
             orientation = -0.0  # 5. 重力投影
@@ -171,7 +171,7 @@ class Zq12Cfg(LeggedRobotCfg):
             action_smoothness = -0.002
             torques = -1.e-5
             dof_vel = -0.0
-            dof_acc = -1.e-6
+            dof_acc = -5.e-7
             #
             base_height = -0.0  # 1.奖励高度？惩罚高度方差
             feet_air_time = 0.
@@ -201,3 +201,5 @@ class Zq12CfgPPO(LeggedRobotCfgPPO):
         # checkpoint = '8400'
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01
+        learning_rate = 1.e-4  # 5.e-4
+        schedule = 'fixed'  # could be adaptive, fixed
