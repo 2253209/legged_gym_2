@@ -84,19 +84,34 @@ class Zq12Robot(LeggedRobot):
         self.compute_reference_states()
 
         # 下行延迟：延长将action送往扭矩的时间
-        # action_delayed = self.action_history.popleft()
-        index_act = random.randint(0,2)
-        action_delayed = self.action_history[index_act]
+
+        # index_act = random.randint(4, 29)
+        # if index_act < 10:
+        #     action_delayed_0 = self.action_history[0]
+        #     action_delayed_1 = self.action_history[1]
+        # elif 10 <= index_act < 20:
+        #     action_delayed_0 = self.action_history[1]
+        #     action_delayed_1 = self.action_history[2]
+        # elif index_act < 30:
+        #     action_delayed_0 = self.action_history[2]
+        #     action_delayed_1 = self.action_history[3]
+        #
+        #
+        # action_delayed = self.action_history[index_act]
+
+        action_delayed = self.action_history.popleft()
         self.action_history.append(actions)
 
         super().step(action_delayed)
 
         # 上行延迟：延迟获取obs,但观察到当前帧的action。
-        # obs_delayed = self.obs_history.popleft()
-        index_obs = random.randint(0, 2)
-        obs_delayed = self.obs_history[index_obs]
+
+        # index_obs = random.randint(4, 29)
+        # obs_delayed = self.obs_history[index_obs]
+
+        obs_delayed = self.obs_history.popleft()
         self.obs_history.append(torch.clone(self.obs_buf))
-        self.obs_buf[:, 5:-self.num_actions] = obs_delayed[:, 5:-self.num_actions]
+        self.obs_buf[:, 5:self.num_obs-self.num_actions] = obs_delayed[:, 5:self.num_obs-self.num_actions]
 
         # obs：由当前sin，当前指令，延迟omega、euler、pos、vel，当前action组成。
         self.obs_buf[:, -self.num_actions:] = actions[:, :]
