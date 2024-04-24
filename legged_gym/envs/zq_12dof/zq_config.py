@@ -117,7 +117,7 @@ class Zq12Cfg(LeggedRobotCfg):
 
     class asset(LeggedRobotCfg.asset):
         # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
-        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/urdf/zq_box_foot.urdf'
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/ZQ_Humanoid/urdf/ZQ_Humanoid.urdf'
         name = "zq01"
         foot_name = 'foot'
         penalize_contacts_on = ['3', '4']

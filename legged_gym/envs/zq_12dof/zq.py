@@ -133,7 +133,7 @@ class Zq12Robot(LeggedRobot):
 
     def _reset_dofs(self, env_ids):
         if self.cfg.domain_rand.randomize_init_state:
-            self.dof_pos[env_ids] = self.default_dof_pos * torch_rand_float(0.9, 1.1, (len(env_ids), self.num_dof), device=self.device)
+            self.dof_pos[env_ids] = self.default_dof_pos + torch_rand_float(-0.1, 0.1, (len(env_ids), self.num_dof), device=self.device)
         else:
             self.dof_pos[env_ids] = self.default_dof_pos
         self.dof_vel[env_ids] = 0.
