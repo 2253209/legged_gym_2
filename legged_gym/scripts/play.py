@@ -87,7 +87,9 @@ def play(args):
 
         # 保存play save
         # obs[:, 2:35] = 0.
-        sloger.save(torch.cat([obs, actions * env_cfg.control.action_scale], dim=1), i, t1 - t0)
+        # sloger.save(torch.cat([obs, actions * env_cfg.control.action_scale], dim=1), i, t1 - t0)
+        sloger.save(torch.cat([obs, env.dof_vel2], dim=1), i, t1 - t0)
+
         t0 = t1
         t1 = time.time()
 

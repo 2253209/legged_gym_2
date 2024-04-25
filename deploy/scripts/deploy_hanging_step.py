@@ -49,13 +49,13 @@ class DeployCfg:
 
     class env:
         dt = 0.01
-        step_freq = 1.5  # Hz
+        step_freq = 0.2  # Hz
 
         num_actions = 12
         num_obs_net = 47  # 2+3+3+3+12+12+12
         num_obs_robot = 48  # 12+12+12+12
         action_scale = 0.1
-        low_pass_rate = 1
+        low_pass_rate = 0.2
         # 神经网络默认初始状态
         default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.30, 0.0,
                                     0.0, 0.0, 0.21, -0.53, 0.30, -0.0], dtype=np.float32)
@@ -202,16 +202,11 @@ class Deploy:
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
                 pos_robot, vel_robot, eu_ang, omega = self.get_obs(es)
                 pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
-
+                eu_ang[1] -= 0.03
                 # 调试,上机时关掉
                 # pos_robot[:] = self.cfg.env.default_joint_pos[:]
                 # eu_ang[:] = 0.
                 # omega[:] = 0.
-
-                # 1.2 当操纵者改变模式时,获取当前关节位置做1秒插值
-                if key_comm.timestep == 0:
-                    pos_0[:] = pos_robot[:]
-                    print('POS COPYED!', pos_0)
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
@@ -256,8 +251,12 @@ class Deploy:
                 # 3.4 将obs写入文件，在logs/dep_log/下
                 sp_logger.save(np.concatenate((self.obs_net, self.obs_robot), axis=1), count_total, frq)
 
+                # 4.1 当操纵者改变模式时,获取当前关节位置做1秒插值
+                if key_comm.timestep == 0:
+                    pos_0[:] = pos_robot[:]
+                    # pos_real_0[:] = 0.
 
-                # 4.1 操纵者改变模式
+                # 4.2 操纵者改变模式
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
                     action_net[:] = 0.
@@ -308,7 +307,6 @@ class Deploy:
                 if key_comm.timestep < count_max_merge:
                     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
                                        + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
-                    print('action: %.4f, %.4f' % (action_robot[2], action_robot[3]))
 
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
@@ -345,7 +343,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-24_零惯量积.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_吊起5hz.pt'
     policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot(policy)
