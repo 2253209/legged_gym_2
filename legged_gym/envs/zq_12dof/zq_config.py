@@ -47,20 +47,20 @@ class Zq12Cfg(LeggedRobotCfg):
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.85]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.86]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.0,
             'JOINT_Y2': 0.0,
             'JOINT_Y3': 0.21,
             'JOINT_Y4': -0.53,
-            'JOINT_Y5': 0.32,
+            'JOINT_Y5': 0.31,
             'JOINT_Y6': 0.0,
 
             'JOINT_Z1': 0.0,
             'JOINT_Z2': 0.0,
             'JOINT_Z3': 0.21,
             'JOINT_Z4': -0.53,
-            'JOINT_Z5': 0.32,
+            'JOINT_Z5': 0.31,
             'JOINT_Z6': -0.0,
         }
         target_joint_angles = [-0., 0.0, 0.21, -0.53, 0.32, 0.,
@@ -131,7 +131,7 @@ class Zq12Cfg(LeggedRobotCfg):
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = False
         friction_range = [0.8, 1.2]
-        randomize_base_mass = True
+        randomize_base_mass = False
         added_mass_range = [-1., 1.]
         push_robots = True
         push_interval_s = 5
