@@ -47,7 +47,7 @@ class Zq12Cfg(LeggedRobotCfg):
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.85]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.84]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.0,
             'JOINT_Y2': 0.0,
@@ -77,7 +77,7 @@ class Zq12Cfg(LeggedRobotCfg):
                    'JOINT_Z1': 5.0, 'JOINT_Z2': 5.0, 'JOINT_Z3': 5.0, 'JOINT_Z4': 5.0, 'JOINT_Z5': 3.0, 'JOINT_Z6': 3.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.05
+        action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 
@@ -106,14 +106,14 @@ class Zq12Cfg(LeggedRobotCfg):
         step_freq = 1.5  # HZ （e.g. cycle-time=0.66）
 
         class ranges(LeggedRobotCfg.commands.ranges):
-            lin_vel_x = [-0.1, 0.3]  # min max [m/s]
-            lin_vel_y = [-0.0, 0.0]   # min max [m/s]
-            ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
-            heading = [-3.14, 3.14]
-            # lin_vel_x = [-0.0, 0.0]  # min max [m/s]
-            # lin_vel_y = [-0.0, 0.0]  # min max [m/s]
-            # ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
-            # heading = [-0, 0]
+            # lin_vel_x = [-0.3, 0.5]  # min max [m/s]
+            # lin_vel_y = [-0.0, 0.0]   # min max [m/s]
+            # ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
+            # heading = [-3.14, 3.14]
+            lin_vel_x = [-0.0, 0.0]  # min max [m/s]
+            lin_vel_y = [-0.0, 0.0]  # min max [m/s]
+            ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
+            heading = [-0, 0]
 
     class asset(LeggedRobotCfg.asset):
         # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
@@ -132,6 +132,7 @@ class Zq12Cfg(LeggedRobotCfg):
         randomize_friction = False
         friction_range = [0.8, 1.2]
         randomize_base_mass = True
+        #randomize_base_mass = False
         added_mass_range = [-1., 1.]
         push_robots = True
         push_interval_s = 5
@@ -139,7 +140,7 @@ class Zq12Cfg(LeggedRobotCfg):
         randomize_init_state = True
 
     class rewards(LeggedRobotCfg.rewards):
-        soft_dof_pos_limit = 0.95
+        soft_dof_pos_limit = 0.9
         soft_dof_vel_limit = 0.9
         soft_torque_limit = 0.9
         max_contact_force = 300.
@@ -161,14 +162,14 @@ class Zq12Cfg(LeggedRobotCfg):
 
             termination = -5.  # 4. 不倒
             tracking_lin_vel = 0.
-            tracking_lin_x_vel = 4.0  # 6. 奖励速度为0
-            tracking_lin_y_vel = 4.0  # 6. 奖励速度为0
-            tracking_ang_vel = 5.0
+            tracking_lin_x_vel = 1.0  # 6. 奖励速度为0
+            tracking_lin_y_vel = 1.0  # 6. 奖励速度为0
+            tracking_ang_vel = 1.0
             lin_vel_z = -0.0
             ang_vel_xy = -0.0
             orientation = -0.0  # 5. 重力投影
             #
-            action_smoothness = -0.002
+            #action_smoothness = -0.002
             torques = -1.e-5
             dof_vel = -0.0
             dof_acc = -5.e-7
@@ -181,7 +182,7 @@ class Zq12Cfg(LeggedRobotCfg):
             feet_stumble = -0.0
             feet_contact_forces = -0.
             #
-            action_rate = -0.01
+            action_rate = -0.2 #-0.01
             stand_still = -0.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
             no_fly = 0.0  # 2. 奖励：两脚都在地上，有一定压力
             target_joint_pos = 10.0  # 3. 惩罚 身体关节角度 偏离
