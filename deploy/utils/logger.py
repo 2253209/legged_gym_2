@@ -80,6 +80,58 @@ def get_title_long():
         i += 1
     return title
 
+def get_title_delay():
+    i = 0
+    label = 'No,Time,'
+    title = ''
+    title += f'{label}'
+    for k in range(94):
+        if k == 0:
+            label = 'sin'
+            i = 0
+        elif k == 2:
+            label = 'cmd'
+            i = 0
+        elif k == 5:
+            label = 'omg'
+            i = 0
+        elif k == 8:
+            label = 'eul'
+            i = 0
+        elif k == 11:
+            label = 'n_pos'
+            i = 0
+        elif k == 23:
+            label = 'n_vel'
+            i = 0
+        elif k == 35:
+            label = 'n_act'
+            i = 0
+        elif k == 47+0:
+            label = 'd_sin'
+            i = 0
+        elif k == 47+2:
+            label = 'd_cmd'
+            i = 0
+        elif k == 47+5:
+            label = 'd_omg'
+            i = 0
+        elif k == 47+8:
+            label = 'd_eul'
+            i = 0
+        elif k == 47+11:
+            label = 'd_pos'
+            i = 0
+        elif k == 47+23:
+            label = 'd_vel'
+            i = 0
+        elif k == 47+35:
+            label = 'd_act'
+            i = 0
+        title += f'{label}_{i},'
+        i += 1
+    return title
+
 
 class SimpleLogger:
     def __init__(self, path, title):
