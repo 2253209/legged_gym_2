@@ -49,7 +49,7 @@ class DeployCfg:
 
     class env:
         dt = 0.01
-        step_freq = 1.5  # Hz
+        step_freq = 0.2  # Hz
 
         num_actions = 12
         num_obs_net = 47  # 2+3+3+3+12+12+12
@@ -57,11 +57,11 @@ class DeployCfg:
         action_scale = 0.1
         low_pass_rate = 0.2
         # 神经网络默认初始状态
-        default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31, 0.03,
-                                    0.03, 0.0, 0.21, -0.53, 0.31, -0.03], dtype=np.float32)
+        default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.30, 0.0,
+                                    0.0, 0.0, 0.21, -0.53, 0.30, -0.0], dtype=np.float32)
         # 真机默认初始状态
-        default_joint_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.379, -0.2854,
-                                      0.03, 0.0, 0.21, -0.53, -0.3379, 0.2854], dtype=np.float32)
+        default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, -0.31,
+                                    0.0, 0.0, 0.21, -0.53, -0.31, 0.31], dtype=np.float32)
 
         joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8, -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
         joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.8, 0.5, 0.5, 0.28, 1.15, -0.05, 0.5, 0.8], dtype=np.float32)
@@ -96,7 +96,7 @@ class Deploy:
     def __init__(self, cfg: DeployCfg, path):
         self.lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
         self.cfg = cfg
-        self.policy = torch.jit.load(path)
+        self.log_path = path
         self.obs_net = np.zeros((1, cfg.env.num_obs_net), dtype=np.float32)
         self.obs_robot = np.zeros((1, cfg.env.num_obs_robot), dtype=np.float32)
 
@@ -151,7 +151,7 @@ class Deploy:
         """
         return (target_q - q) * kp + (target_dq - dq) * kd
 
-    def run_robot(self):
+    def run_robot(self, policy):
         # 从真机获取和发送给真机的值
         action_robot = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
         pos_robot = np.zeros_like(action_robot)
@@ -187,7 +187,7 @@ class Deploy:
 
         try:
             for i in range(10):
-                self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                policy(torch.tensor(self.obs_net))[0].detach().numpy()
 
             while key_comm.listening:
                 c_delay = time.time() - current_time
@@ -202,16 +202,11 @@ class Deploy:
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
                 pos_robot, vel_robot, eu_ang, omega = self.get_obs(es)
                 pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
-
+                eu_ang[1] -= 0.03
                 # 调试,上机时关掉
                 # pos_robot[:] = self.cfg.env.default_joint_pos[:]
                 # eu_ang[:] = 0.
                 # omega[:] = 0.
-
-                # 1.2 当操纵者改变模式时,获取当前关节位置做1秒插值
-                if key_comm.timestep == 0:
-                    pos_0 = pos_robot.copy()
-                    # print('POS COPYED!', pos_0)
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
@@ -261,32 +256,30 @@ class Deploy:
                     pos_0[:] = pos_robot[:]
                     # pos_real_0[:] = 0.
 
-                # 4.1 操纵者改变模式
+                # 4.2 操纵者改变模式
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
                     action_net[:] = 0.
                     action_robot[:] = self.cfg.env.default_dof_pos[:]
-                    action_filter = action_robot.copy()
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepTest:
                     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
                     action_net[:] = 0.
-                    action_robot[:] = self.cfg.env.default_dof_pos[:]
+                    action_robot[:] = 0.
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
-                    action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
-                    action_0 = action_net.copy() * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    action_0 = policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                    action_net[:] = action_0[:]
                     # 低通滤波
-                    action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
+                    action_net = action_net * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
 
                     # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
-                    # action_robot = action_net.copy() * self.cfg.env.action_scale
-                    # action_robot[:] += self.cfg.env.default_dof_pos[:]
+                    action_robot[:] = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
                     # print(action_real)
 
                     # action_robot[0] = 0.
@@ -297,7 +290,7 @@ class Deploy:
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
 
-                    action_filter = action_robot.copy()
+                    action_filter[:] = action_net[:]
                 else:
                     print('退出')
 
@@ -314,7 +307,6 @@ class Deploy:
                 if key_comm.timestep < count_max_merge:
                     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
                                        + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
-                    # print('action: %.4f, %.4f' % (action_robot[2], action_robot[3]))
 
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
@@ -351,7 +343,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-26-4800.pt'
-
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_吊起5hz.pt'
+    policy = torch.jit.load(args.load_model)
     deploy = Deploy(DeployCfg(), args.load_model)
-    deploy.run_robot()
+    deploy.run_robot(policy)

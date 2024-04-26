@@ -501,7 +501,7 @@ class LeggedRobot(BaseTask):
         self.root_states = gymtorch.wrap_tensor(actor_root_state)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
         self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]
-        # self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
+        self.dof_vel2 = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
         self.dof_vel = torch.zeros_like(self.dof_pos)
 
         self.base_quat = self.root_states[:, 3:7]
@@ -699,7 +699,7 @@ class LeggedRobot(BaseTask):
             self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_props)
             body_props = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
             body_props = self._process_rigid_body_props(body_props, i)
-            self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, body_props, recomputeInertia=True)
+            self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, body_props, recomputeInertia=False)  # 需要是False
             self.envs.append(env_handle)
             self.actor_handles.append(actor_handle)
 
