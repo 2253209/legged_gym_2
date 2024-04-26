@@ -17,7 +17,7 @@ from deploy.utils.act_gen import ActionGenerator
 from deploy.utils.ankle_joint_converter import convert_pv_joint_2_ori, convert_p_ori_2_joint
 from deploy.utils.logger import SimpleLogger, get_title_long
 from deploy.utils.key_command import KeyCommand
-from legged_gym import LEGGED_GYM_ROOT_DIR
+from humanoid import LEGGED_GYM_ROOT_DIR
 
 
 def quaternion_to_euler_array(quat):
@@ -96,7 +96,7 @@ class Deploy:
     def __init__(self, cfg: DeployCfg, path):
         self.lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
         self.cfg = cfg
-        self.log_path = path
+        self.policy = torch.jit.load(path)
         self.obs_net = np.zeros((1, cfg.env.num_obs_net), dtype=np.float32)
         self.obs_robot = np.zeros((1, cfg.env.num_obs_robot), dtype=np.float32)
 
@@ -151,7 +151,7 @@ class Deploy:
         """
         return (target_q - q) * kp + (target_dq - dq) * kd
 
-    def run_robot(self, policy):
+    def run_robot(self):
         # 从真机获取和发送给真机的值
         action_robot = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
         pos_robot = np.zeros_like(action_robot)
@@ -187,7 +187,7 @@ class Deploy:
 
         try:
             for i in range(10):
-                policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
 
             while key_comm.listening:
                 c_delay = time.time() - current_time
@@ -204,7 +204,7 @@ class Deploy:
                 pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
 
                 # 调试,上机时关掉
-                # pos_robot[:] = self.cfg.env.default_joint_pos[:]
+                pos_robot[:] = self.cfg.env.default_joint_pos[:]
                 # eu_ang[:] = 0.
                 # omega[:] = 0.
 
@@ -261,25 +261,27 @@ class Deploy:
                     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
                     action_net[:] = 0.
                     action_robot[:] = self.cfg.env.default_dof_pos[:]
+                    action_filter = action_robot.copy()
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepTest:
                     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
                     action_net[:] = 0.
-                    action_robot[:] = 0.
+                    action_robot[:] = self.cfg.env.default_dof_pos[:]
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
 
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
-                    action_0 = policy(torch.tensor(self.obs_net))[0].detach().numpy()
-                    action_net[:] = action_0[:]
+                    action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                    action_0 = action_net.copy() * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
                     # 低通滤波
-                    action_net = action_net * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
+                    action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
 
                     # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
-                    action_robot[:] = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    # action_robot = action_net.copy() * self.cfg.env.action_scale
+                    # action_robot[:] += self.cfg.env.default_dof_pos[:]
                     # print(action_real)
 
                     # action_robot[0] = 0.
@@ -290,7 +292,7 @@ class Deploy:
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
 
-                    action_filter[:] = action_net[:]
+                    action_filter = action_robot.copy()
                 else:
                     print('退出')
 
@@ -343,7 +345,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-23-10000.pt'
-    policy = torch.jit.load(args.load_model)
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq/exported/policies/policy_4-26-4800.pt'
+
     deploy = Deploy(DeployCfg(), args.load_model)
-    deploy.run_robot(policy)
+    deploy.run_robot()
