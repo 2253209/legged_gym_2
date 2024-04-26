@@ -145,6 +145,7 @@ class Zq12Robot(LeggedRobot):
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
         if torch.isnan(self.obs_buf).any():
             self.obs_buf = torch.nan_to_num(self.obs_buf, nan=0.0001)
+
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
         for i in range(self.obs_history.maxlen):
@@ -249,20 +250,19 @@ class Zq12Robot(LeggedRobot):
         self.cos_pos[:, 1] = cos_pos * mask_left
 
         scale_1 = self.cfg.commands.step_joint_offset
-        scale_2 = 1.8 * scale_1
-        scale_3 = scale_2 - scale_1
+        scale_2 = 2 * scale_1
 
         self.ref_dof_pos[:, :] = self.default_dof_pos[0, :]
         # right foot stance phase set to default joint pos
         # sin_pos_r[sin_pos_r < 0] = 0
         self.ref_dof_pos[:, 2] += self.cos_pos[:, 0] * scale_1
         self.ref_dof_pos[:, 3] += -self.cos_pos[:, 0] * scale_2
-        self.ref_dof_pos[:, 4] += self.cos_pos[:, 0] * scale_3
+        self.ref_dof_pos[:, 4] += self.cos_pos[:, 0] * scale_1
         # left foot stance phase set to default joint pos
         # sin_pos_l[sin_pos_l > 0] = 0
         self.ref_dof_pos[:, 8] += self.cos_pos[:, 1] * scale_1
         self.ref_dof_pos[:, 9] += -self.cos_pos[:, 1] * scale_2
-        self.ref_dof_pos[:, 10] += self.cos_pos[:, 1] * scale_3
+        self.ref_dof_pos[:, 10] += self.cos_pos[:, 1] * scale_1
 
         # 双足支撑相位
         # self.ref_dof_pos[torch.abs(self.sin_pos[:, 0]) < 0.1, :] = 0. + self.default_dof_pos[0, :]
