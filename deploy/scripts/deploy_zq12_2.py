@@ -256,11 +256,6 @@ class Deploy:
                 # 3.4 将obs写入文件，在logs/dep_log/下
                 sp_logger.save(np.concatenate((self.obs_net, self.obs_robot), axis=1), count_total, frq)
 
-                # 4.1 当操纵者改变模式时,获取当前关节位置做1秒插值
-                if key_comm.timestep == 0:
-                    pos_0[:] = pos_robot[:]
-                    # pos_real_0[:] = 0.
-
                 # 4.1 操纵者改变模式
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
@@ -311,10 +306,9 @@ class Deploy:
                                        self.cfg.env.joint_limit_max)
 
                 # 5.2 插值平滑输出
-                if key_comm.timestep < count_max_merge:
-                    action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                                       + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
-                    # print('action: %.4f, %.4f' % (action_robot[2], action_robot[3]))
+                # if key_comm.timestep < count_max_merge:
+                #     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
+                #                        + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
 
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
@@ -351,7 +345,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-26-4800.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-26-2.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()
