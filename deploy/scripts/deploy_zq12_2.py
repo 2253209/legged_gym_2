@@ -69,7 +69,7 @@ class DeployCfg:
     class normalization:
         class obs_scales:
             lin_vel = 1.0
-            ang_vel = 0.25
+            ang_vel = 1.0  #0.25
             dof_pos = 1.0
             dof_vel = 0.05
             quat = 1.
@@ -211,7 +211,11 @@ class Deploy:
                 # 1.2 当操纵者改变模式时,获取当前关节位置做1秒插值
                 if key_comm.timestep == 0:
                     pos_0 = pos_robot.copy()
-                    # print('POS COPYED!', pos_0)
+                    print('POS COPIED!', pos_0)
+                    key_comm.timestep += 1
+                else:
+                    key_comm.timestep += 1
+
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 try:
@@ -254,12 +258,12 @@ class Deploy:
                 # obs_clip = np.clip(self.obs_net, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
 
                 # 3.4 将obs写入文件，在logs/dep_log/下
-                sp_logger.save(np.concatenate((self.obs_net, self.obs_robot), axis=1), count_total, frq)
+                sp_logger.save(np.concatenate((self.obs_net.copy(), self.obs_robot.copy()), axis=1), count_total, frq)
 
                 # 4.1 操纵者改变模式
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
-                    action_net[:] = 0.
+                    action_net[:] = self.cfg.env.default_dof_pos[:]
                     action_0[:] = self.cfg.env.default_dof_pos[:]
                     action_robot[:] = self.cfg.env.default_dof_pos[:]
                     action_filter = action_robot.copy()
@@ -276,11 +280,10 @@ class Deploy:
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
                     action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
-                    action_0 = action_net.copy() * self.cfg.env.action_scale
-                    action_0 += self.cfg.env.default_dof_pos
+                    action_0 = action_net.copy()
                     # 低通滤波
                     # action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
-                    action_robot = action_0.copy()
+                    action_robot = action_0.copy() * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
                     # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
                     # action_robot = action_net.copy() * self.cfg.env.action_scale
                     # action_robot[:] += self.cfg.env.default_dof_pos[:]
@@ -308,9 +311,9 @@ class Deploy:
                                        self.cfg.env.joint_limit_max)
 
                 # 5.2 插值平滑输出
-                # if key_comm.timestep < count_max_merge:
-                #     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
-                #                        + action_robot[:] / count_max_merge * (key_comm.timestep))
+                if key_comm.timestep < count_max_merge:
+                    action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                                       + action_robot[:] / count_max_merge * (key_comm.timestep))
 
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
@@ -324,7 +327,6 @@ class Deploy:
                 else:
                     pass
 
-                key_comm.timestep += 1
                 count_total += 1
 
         except KeyboardInterrupt:
@@ -347,7 +349,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-26-3.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-27_delay_6_obs.pt'
+        # args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/4.28/policy_4-28_6obs_trim_3.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()
