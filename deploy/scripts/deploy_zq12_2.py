@@ -55,12 +55,12 @@ class DeployCfg:
         num_obs_net = 47  # 2+3+3+3+12+12+12
         num_obs_robot = 48  # 12+12+12+12
         action_scale = 0.1
-        low_pass_rate = 0.2
+        low_pass_rate = 1.  #0.2
         # 神经网络默认初始状态
         default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31, 0.03,
                                     0.03, 0.0, 0.21, -0.53, 0.31, -0.03], dtype=np.float32)
         # 真机默认初始状态
-        default_joint_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.379, -0.2854,
+        default_joint_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.3379, -0.2854,
                                       0.03, 0.0, 0.21, -0.53, -0.3379, 0.2854], dtype=np.float32)
 
         joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8, -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
@@ -181,7 +181,7 @@ class Deploy:
         key_comm = KeyCommand()
         key_comm.start()
         count_total = 0
-        count_max_merge = 50
+        count_max_merge = 30
 
         sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_long())
 
@@ -260,6 +260,7 @@ class Deploy:
                 if key_comm.stepCalibrate:
                     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
                     action_net[:] = 0.
+                    action_0[:] = self.cfg.env.default_dof_pos[:]
                     action_robot[:] = self.cfg.env.default_dof_pos[:]
                     action_filter = action_robot.copy()
                     kp[:] = self.cfg.robot_config.kps_stand[:]
@@ -275,10 +276,11 @@ class Deploy:
                 elif key_comm.stepNet:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
                     action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
-                    action_0 = action_net.copy() * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    action_0 = action_net.copy() * self.cfg.env.action_scale
+                    action_0 += self.cfg.env.default_dof_pos
                     # 低通滤波
-                    action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
-
+                    # action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
+                    action_robot = action_0.copy()
                     # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
                     # action_robot = action_net.copy() * self.cfg.env.action_scale
                     # action_robot[:] += self.cfg.env.default_dof_pos[:]
@@ -307,8 +309,8 @@ class Deploy:
 
                 # 5.2 插值平滑输出
                 # if key_comm.timestep < count_max_merge:
-                #     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep - 1)
-                #                        + action_robot[:] / count_max_merge * (key_comm.timestep + 1))
+                #     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                #                        + action_robot[:] / count_max_merge * (key_comm.timestep))
 
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
@@ -345,7 +347,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-26-2.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_4-26-3.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()

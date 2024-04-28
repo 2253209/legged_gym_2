@@ -336,3 +336,15 @@ class Zq12Robot(LeggedRobot):
             self.actions + self.last_last_actions - 2 * self.last_actions), dim=1)
         term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
         return term_1 + term_2 + term_3
+
+    def _reward_feet_distance(self):
+        """
+        Calculates the reward based on the distance between the feet. Penilize feet get close to each other or too far away.
+        """
+        foot_pos = self.rigid_state[:, self.feet_indices, :2]
+        foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
+        fd = self.cfg.rewards.min_dist
+        max_df = self.cfg.rewards.max_dist
+        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
+        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2

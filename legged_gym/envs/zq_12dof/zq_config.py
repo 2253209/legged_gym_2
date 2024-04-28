@@ -106,18 +106,18 @@ class Zq12Cfg(LeggedRobotCfg):
         step_freq = 1.5  # HZ （e.g. cycle-time=0.66）
 
         class ranges(LeggedRobotCfg.commands.ranges):
-            lin_vel_x = [-0.3, 0.5]  # min max [m/s]
-            lin_vel_y = [-0.0, 0.0]   # min max [m/s]
-            ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
-            heading = [-3.14, 3.14]
-            # lin_vel_x = [-0.0, 0.0]  # min max [m/s]
-            # lin_vel_y = [-0.0, 0.0]  # min max [m/s]
-            # ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
-            # heading = [-0, 0]
+            #lin_vel_x = [-0.3, 0.5]  # min max [m/s]
+            #lin_vel_y = [-0.0, 0.0]   # min max [m/s]
+            #ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
+            #heading = [-3.14, 3.14]
+            lin_vel_x = [-0.1, 0.1]  # min max [m/s]
+            lin_vel_y = [-0.0, 0.0]  # min max [m/s]
+            ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
+            heading = [-0, 0]
 
     class asset(LeggedRobotCfg.asset):
         # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
-        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/ZQ_Humanoid/urdf/ZQ_Humanoid.urdf'
+        file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/ZQ_Humanoid/urdf/ZQ_Humanoid_long_foot.urdf'
         name = "zq01"
         foot_name = 'foot'
         penalize_contacts_on = ['3', '4']
@@ -146,6 +146,8 @@ class Zq12Cfg(LeggedRobotCfg):
         only_positive_rewards = True
         base_height_target = 0.83
         tracking_sigma = 0.15
+        min_dist = 0.2
+        max_dist = 0.5
         class scales(LeggedRobotCfg.rewards.scales):
             # termination = -200.
             # tracking_ang_vel = 1.0
@@ -166,7 +168,7 @@ class Zq12Cfg(LeggedRobotCfg):
             tracking_ang_vel = 1.0
             lin_vel_z = -0.0
             ang_vel_xy = -0.0
-            orientation = -0.0  # 5. 重力投影
+            orientation = -5.0  # 5. 重力投影
             #
             action_smoothness = -0.  # 0.002
             torques = -1.e-5
@@ -186,6 +188,7 @@ class Zq12Cfg(LeggedRobotCfg):
             no_fly = 0.0  # 2. 奖励：两脚都在地上，有一定压力
             target_joint_pos = 10.0  # 3. 惩罚 身体关节角度 偏离
             # body_feet_dist = -1.0
+            feet_distance = 1.0
 
 
 

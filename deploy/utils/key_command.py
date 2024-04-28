@@ -33,6 +33,7 @@ class KeyCommand:
         # print(f'key {key} is pressed')
         if key == Key.up:  # str(key) == "'1'":
             self.timestep = 0
+            print("std ", self.timestep)
             self.stepCalibrate = True
             # self.stepCalibrate = False
             self.stepTest = False
@@ -40,6 +41,7 @@ class KeyCommand:
             print('!!!!!  静态归零模式 ！')
         elif key == Key.left:  # str(key) == "'2'":
             self.timestep = 0
+            print("not ", self.timestep)
             self.stepTest = True
             self.stepCalibrate = False
             # self.stepTest = False
@@ -47,6 +49,7 @@ class KeyCommand:
             print('!!!!!  挂起动腿模式 ！')
         elif key == Key.right:  # str(key) == "'3'":
             self.timestep = 0
+            print("net ", self.timestep)
             self.stepNet = True
             self.stepCalibrate = False
             self.stepTest = False
