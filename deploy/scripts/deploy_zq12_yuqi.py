@@ -55,11 +55,11 @@ class DeployCfg:
         num_actions = 12
         num_obs_net = 47  # 2+3+3+3+12+12+12
         num_obs_robot = 48  # 12+12+12+12
-        action_scale = 0.1
+        action_scale = 0.04
         low_pass_rate = 1.0
         # 神经网络默认初始状态
-        default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.32, 0.03,
-                                    0.03, 0.0, 0.21, -0.53, 0.32, -0.03], dtype=np.float32)
+        default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31, 0.03,
+                                    0.03, 0.0, 0.21, -0.53, 0.31, -0.03], dtype=np.float32)
         # 真机默认初始状态
         default_joint_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.3279, -0.2753,
                                       0.03, 0.0, 0.21, -0.53, -0.3279, 0.2753], dtype=np.float32)
@@ -80,7 +80,7 @@ class DeployCfg:
         clip_actions = 100.
 
     class cmd:
-        vx = 0.0  # 0.5
+        vx = -0.2  # 0.5
         vy = 0.0  # 0.
         dyaw = 0.0  # 0.05
 
@@ -161,6 +161,7 @@ class Deploy:
         action_filter = self.cfg.env.default_dof_pos[:]
 
         action_0 = np.copy(action_robot)
+        action_1 = np.copy(action_robot)
         # 从神经网络获取和发送给网络的值
         action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
         pos_net = np.copy(action_net)
@@ -183,7 +184,7 @@ class Deploy:
         key_comm = KeyCommand()
         key_comm.start()
         count_total = 0
-        count_max_merge = 100
+        count_max_merge = 30
 
         sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_long())
 
@@ -213,10 +214,12 @@ class Deploy:
                 # 1.2 当操纵者改变模式时,获取当前关节位置做1秒插值
                 if key_comm.timestep == 0:
                     pos_0 = pos_robot.copy()
-                    print('POS COPIED!', pos_0)
+                    print('Time step = 0, POS COPIED!', pos_0)
                     key_comm.timestep += 1
                 else:
                     key_comm.timestep += 1
+
+                print('All time, POS COPIED!', pos_robot)
 
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
@@ -263,54 +266,100 @@ class Deploy:
                 sp_logger.save(np.concatenate((self.obs_net.copy(), self.obs_robot.copy()), axis=1), count_total, frq)
 
                 # 4.1 操纵者改变模式
-                if key_comm.stepCalibrate:
-                    # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
-                    action_net[:] = 0.
-                    action_robot[:] = self.cfg.env.default_dof_pos[:]
-                    kp[:] = self.cfg.robot_config.kps_stand[:]
-                    kd[:] = self.cfg.robot_config.kds_stand[:]
+                # if key_comm.stepCalibrate:
+                #     # 当状态是“静态归零模式”时：将所有电机设置初始姿态。注意! action_net需要一直为0
+                #     action_net[:] = 0.
+                #     action_robot[:] = self.cfg.env.default_dof_pos[:]
+                #     kp[:] = self.cfg.robot_config.kps_stand[:]
+                #     kd[:] = self.cfg.robot_config.kds_stand[:]
+                #
+                # elif key_comm.stepTest:
+                #     # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
+                #     action_net[:] = 0.
+                #     action_robot[:] = self.cfg.env.default_dof_pos[:]
+                #     kp[:] = self.cfg.robot_config.kps_stand[:]
+                #     kd[:] = self.cfg.robot_config.kds_stand[:]
 
-                elif key_comm.stepTest:
-                    # 当状态是“挂起动腿模式”时：使用动作发生器，生成腿部动作
-                    action_net[:] = 0.
-                    action_robot[:] = self.cfg.env.default_dof_pos[:]
-                    kp[:] = self.cfg.robot_config.kps_stand[:]
-                    kd[:] = self.cfg.robot_config.kds_stand[:]
-
-                elif key_comm.stepNet:
-                    # 当状态是“神经网络模式”时：使用神经网络输出动作。
-                    action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
-
-                    # 滤波
-                    action_net = action_net * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
-
-                    # 裁剪
-                    action_net = np.clip(action_net, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
-
-                    action_net = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
-                    # action_0 += self.cfg.env.default_dof_pos
-                    # 低通滤波
-                    # action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
-                    # action_robot = action_0.copy()
-                    # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
-                    # action_robot = action_net.copy() * self.cfg.env.action_scale
-                    # action_robot[:] += self.cfg.env.default_dof_pos[:]
-                    # print(action_real)
-
-                    # action_robot[0] = 0.
-                    # action_robot[1] = 0.
-                    # action_robot[6] = 0.
-                    # action_robot[7] = 0.
-
-                    kp[:] = self.cfg.robot_config.kps[:]
-                    kd[:] = self.cfg.robot_config.kds[:]
-                    action_filter = action_net.copy()
-                    action_robot = action_net.copy()
-                else:
-                    print('退出')
+                # elif key_comm.stepNet:
+                #     # 当状态是“神经网络模式”时：使用神经网络输出动作。
+                #     action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                #     #action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+                #     action_0 = action_net.copy()
+                #     #action_net *= 0.1
+                #     # 滤波
+                #     #action_1 = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
+                #
+                #     # 裁剪
+                #     action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
+                #
+                #     action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                #
+                #     # action_net = np.clip(action_net, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
+                #     #
+                #     # action_net = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                #     # action_0 += self.cfg.env.default_dof_pos
+                #     # 低通滤波
+                #     # action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
+                #     # action_robot = action_0.copy()
+                #     # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
+                #     # action_robot = action_net.copy() * self.cfg.env.action_scale
+                #     # action_robot[:] += self.cfg.env.default_dof_pos[:]
+                #     # print(action_real)
+                #
+                #     # action_robot[0] = 0.
+                #     # action_robot[1] = 0.
+                #     # action_robot[6] = 0.
+                #     # action_robot[7] = 0.
+                #
+                #     kp[:] = self.cfg.robot_config.kps[:]
+                #     kd[:] = self.cfg.robot_config.kds[:]
+                #     # action_filter = action_1.copy()
+                #     action_robot = action_1.copy()
+                #     # action_filter = action_net.copy()
+                #     #action_robot = action_net.copy()
+                # else:
+                #     print('退出')
 
                 # 5.1 将神经网络输出的踝部关节角度,转换成实际电机指令
                 # 这里可能有问题
+                # 当状态是“神经网络模式”时：使用神经网络输出动作。
+
+                action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                # action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+                action_0 = action_net.copy()
+                # action_net *= 0.1
+                # 滤波
+                # action_1 = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
+
+                # 裁剪
+                action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
+
+                action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+
+                # action_net = np.clip(action_net, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
+                #
+                # action_net = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                # action_0 += self.cfg.env.default_dof_pos
+                # 低通滤波
+                # action_robot = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
+                # action_robot = action_0.copy()
+                # 关键一步:将神经网络生成的值*action_scale +默认关节位置 !!!!!!
+                # action_robot = action_net.copy() * self.cfg.env.action_scale
+                # action_robot[:] += self.cfg.env.default_dof_pos[:]
+                # print(action_real)
+
+                # action_robot[0] = 0.
+                # action_robot[1] = 0.
+                # action_robot[6] = 0.
+                # action_robot[7] = 0.
+
+                kp[:] = self.cfg.robot_config.kps[:]
+                kd[:] = self.cfg.robot_config.kds[:]
+                # action_filter = action_1.copy()
+                action_robot = action_1.copy()
+                # action_filter = action_net.copy()
+                # action_robot = action_net.copy()
+
                 p1, p2, p3, p4 = (
                     convert_p_ori_2_joint(action_robot[4], action_robot[5], action_robot[10], action_robot[11]))
 
@@ -323,10 +372,15 @@ class Deploy:
                 if key_comm.timestep < count_max_merge:
                     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
                                        + action_robot[:] / count_max_merge * (key_comm.timestep))
-
+                print(action_robot[4])
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
-                    self.publish_action(action_robot, kp, kd)
+                    action_2 = np.array(self.cfg.env.default_joint_pos)
+                    # 5.2 插值平滑输出
+                    if key_comm.timestep < count_max_merge:
+                        action_2[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                                           + action_2[:] / count_max_merge * (key_comm.timestep))
+                    self.publish_action(action_2, kp, kd)
                     # pass
                 elif key_comm.stepTest:
                     pass
