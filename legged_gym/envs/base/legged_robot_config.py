@@ -152,6 +152,8 @@ class LeggedRobotCfg(BaseConfig):
         soft_torque_limit = 1.
         base_height_target = 1.
         max_contact_force = 100. # forces above this value are penalized
+        min_dist = 0.2
+        max_dist = 0.5
 
     class normalization:
         class obs_scales:
@@ -159,6 +161,7 @@ class LeggedRobotCfg(BaseConfig):
             ang_vel = 0.25
             dof_pos = 1.0
             dof_vel = 0.05
+            action = 0.5
             height_measurements = 5.0
         clip_observations = 100.
         clip_actions = 100.
@@ -203,7 +206,7 @@ class LeggedRobotCfgPPO(BaseConfig):
     seed = 1
     runner_class_name = 'OnPolicyRunner'
     class policy:
-        init_noise_std = 1.0
+        init_noise_std = 0.2 #1.0 修改后效果得到显著提升
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [512, 256, 128]
         activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid

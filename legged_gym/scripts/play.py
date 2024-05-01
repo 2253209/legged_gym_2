@@ -86,9 +86,9 @@ def play(args):
         # actions[:, :] = env.default_dof_pos[0, :]
 
         # 保存play save
-        # obs[:, 2:35] = 0.
-        # sloger.save(torch.cat([obs, actions * env_cfg.control.action_scale], dim=1), i, t1 - t0)
-        sloger.save(torch.cat([obs, env.dof_vel2], dim=1), i, t1 - t0)
+        #obs[:, 2:47] = 0.
+        sloger.save(torch.cat([obs, actions * env_cfg.control.action_scale], dim=1), i, t1 - t0)
+        #sloger.save(torch.cat([obs, env.dof_vel2], dim=1), i, t1 - t0)
 
         t0 = t1
         t1 = time.time()
@@ -99,6 +99,7 @@ def play(args):
         env.commands[:, 2] = 0.0
 
         obs, _, rews, dones, infos = env.step(actions.detach())
+
         if RECORD_FRAMES:
             if i % 2:
                 filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")

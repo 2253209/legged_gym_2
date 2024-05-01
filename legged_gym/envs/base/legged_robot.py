@@ -371,6 +371,7 @@ class LeggedRobot(BaseTask):
         control_type = self.cfg.control.control_type
         if control_type=="P":
             torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel
+            #torques = self.p_gains*(actions - self.dof_pos) - self.d_gains*self.dof_vel
             # print('torques:', list(map(lambda x: "%.4f" % x, torques[0])))
         elif control_type=="V":
             torques = self.p_gains*(actions_scaled - self.dof_vel) - self.d_gains*(self.dof_vel - self.last_dof_vel)/self.sim_params.dt

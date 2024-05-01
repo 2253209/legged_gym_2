@@ -88,6 +88,9 @@ def inverse_kinematics(l_bar, l_rod, l_spacing, q_roll, q_pitch, leg='right' or 
         b = -4 * M * K
         c = M ** 2 - 4 * N ** 2
 
+        if b ** 2 - 4 * a * c < 0.0:
+            print('input roll or pitch of ankle beyond the range!!')
+            print('leg, roll, pitch: ', leg, q_roll, q_pitch)
         theta_i = np.arcsin((-b + np.sqrt(b ** 2 - 4 * a * c)) / (2 * a))  # 电机指令
 
         R_y_theta = np.array([[np.cos(theta_i), 0, np.sin(theta_i)],
