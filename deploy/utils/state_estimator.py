@@ -22,6 +22,7 @@ class StateEstimator:
 
         self.joint_pos = np.zeros(12, dtype=np.float32)
         self.joint_vel = np.zeros(12, dtype=np.float32)
+        self.joint_tau = np.zeros(12, dtype=np.float32)
         self.quat = np.zeros(4, dtype=np.float32)
         self.omegaBody = np.zeros(3, dtype=np.float32)
 
@@ -48,6 +49,7 @@ class StateEstimator:
         # self.joint_vel = filter_mean(self.buffer_vel, np.array(msg.qd))
         self.joint_pos = np.array(msg.q)
         self.joint_vel = np.array(msg.qd)
+        self.joint_tau = np.array(msg.tau_est)
         # print(f"update legdata {msg.id}")
 
     def poll(self, cb=None):

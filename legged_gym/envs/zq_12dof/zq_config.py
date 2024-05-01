@@ -70,14 +70,14 @@ class Zq12Cfg(LeggedRobotCfg):
         # PD Drive parameters:
         # stiffness = {'JOINT': 100.0}  # [N*m/rad]
         # damping = {'JOINT': 0.0}
-        stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 200.0, 'JOINT_Y6': 200.0,
-                     'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 200.0, 'JOINT_Z6': 200.0,
+        stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 50.0, 'JOINT_Y6': 50.0,
+                     'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 50.0, 'JOINT_Z6': 50.0,
                      }  # [N*m/rad]
         damping = {'JOINT_Y1': 5.0, 'JOINT_Y2': 5.0, 'JOINT_Y3': 5.0, 'JOINT_Y4': 5.0, 'JOINT_Y5': 3.0, 'JOINT_Y6': 3.0,
                    'JOINT_Z1': 5.0, 'JOINT_Z2': 5.0, 'JOINT_Z3': 5.0, 'JOINT_Z4': 5.0, 'JOINT_Z5': 3.0, 'JOINT_Z6': 3.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.1
+        action_scale = 0.5 # 调整为和返回给obs的一样
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 
@@ -97,9 +97,10 @@ class Zq12Cfg(LeggedRobotCfg):
             ang_vel = 0.25
             dof_pos = 1.0
             dof_vel = 0.05
+            action = 0.5 # action缩放系数
             height_measurements = 5.0
         clip_observations = 100.
-        clip_actions = 100.
+        clip_actions = 5 # 从100修改为5
 
     class commands(LeggedRobotCfg.commands):
         step_joint_offset = 0.30  # rad
@@ -124,7 +125,7 @@ class Zq12Cfg(LeggedRobotCfg):
         terminate_after_contacts_on = []
         flip_visual_attachments = False
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
-        terminate_body_height = 0.4
+        terminate_body_height = 0.6  #修改
         disable_gravity = False
         fix_base_link = False
 
@@ -133,7 +134,7 @@ class Zq12Cfg(LeggedRobotCfg):
         friction_range = [0.8, 1.2]
         randomize_base_mass = False
         added_mass_range = [-1., 1.]
-        push_robots = True
+        push_robots = False
         push_interval_s = 5
         max_push_vel_xy = 0.5
         randomize_init_state = True
@@ -168,14 +169,14 @@ class Zq12Cfg(LeggedRobotCfg):
             tracking_ang_vel = 1.0
             lin_vel_z = -0.0
             ang_vel_xy = -0.0
-            orientation = -5.0  # 5. 重力投影
+            orientation = -1.0  # 5. 重力投影
             #
             action_smoothness = -0.  # 0.002
             torques = -1.e-5
             dof_vel = -0.0
             dof_acc = -5.e-7
             #
-            base_height = -0.0  # 1.奖励高度？惩罚高度方差
+            base_height = -5.0  # 1.奖励高度？惩罚高度方差
             feet_air_time = 0.
             collision = -0.1
             dof_pos_limits = -1.  # 让各个关节不要到达最大位置
@@ -183,7 +184,7 @@ class Zq12Cfg(LeggedRobotCfg):
             feet_stumble = -0.0
             feet_contact_forces = -0.
             #
-            action_rate = -0.01
+            action_rate = -0.2 * 10 # 放大10-20倍
             stand_still = -0.  # 3. 惩罚：0指令运动。关节角度偏离 初始值
             no_fly = 0.0  # 2. 奖励：两脚都在地上，有一定压力
             target_joint_pos = 10.0  # 3. 惩罚 身体关节角度 偏离

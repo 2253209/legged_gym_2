@@ -14,6 +14,7 @@ class KeyCommand:
         self.stepNet = False
         self.stepCalibrate = True
         self.timestep = 0
+        self.keyboardEvent = True
         self.listener = None
 
         self.keyboard = Controller()
@@ -31,6 +32,9 @@ class KeyCommand:
 
     def on_press(self, key):
         # print(f'key {key} is pressed')
+
+        self.keyboardEvent = True
+
         if key == Key.up:  # str(key) == "'1'":
             self.timestep = 0
             print("std ", self.timestep)

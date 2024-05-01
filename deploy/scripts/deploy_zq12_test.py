@@ -55,7 +55,7 @@ class DeployCfg:
         num_actions = 12
         num_obs_net = 47  # 2+3+3+3+12+12+12
         num_obs_robot = 48  # 12+12+12+12
-        action_scale = 0.04
+        action_scale = 0.5
         low_pass_rate = 1.0
         # 神经网络默认初始状态
         default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31, 0.03,
@@ -73,11 +73,12 @@ class DeployCfg:
             ang_vel = 0.25
             dof_pos = 1.0
             dof_vel = 0.05
+            action = 0.5
             quat = 1.
             height_measurements = 5.0
 
         clip_observations = 100.
-        clip_actions = 100.
+        clip_actions = 5.
 
     class cmd:
         vx = 0.0  # 0.5
@@ -85,7 +86,7 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
+        kps = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
         # kps = np.array([400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], dtype=np.double)
         kds = np.array([10, 10, 10, 10, 4, 4, 10, 10, 10, 10, 4, 4], dtype=np.double)
 
@@ -219,7 +220,7 @@ class Deploy:
                 else:
                     key_comm.timestep += 1
 
-                # print('All time, POS COPIED!', pos_robot)
+                #print('All time, POS COPIED!', pos_robot)
 
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
@@ -326,15 +327,15 @@ class Deploy:
 
                 action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
                 # action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
-                action_0 = action_net.copy()
+                # action_0 = action_net.copy()
                 # action_net *= 0.1
                 # 滤波
                 # action_1 = action_0 * self.cfg.env.low_pass_rate + (1 - self.cfg.env.low_pass_rate) * action_filter
 
                 # 裁剪
-                action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
+                action_net = np.clip(action_net, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
 
-                action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                action_net = action_net * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
 
                 # action_net = np.clip(action_net, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
                 #
@@ -356,7 +357,7 @@ class Deploy:
                 kp[:] = self.cfg.robot_config.kps[:]
                 kd[:] = self.cfg.robot_config.kds[:]
                 # action_filter = action_1.copy()
-                action_robot = action_1.copy()
+                action_robot = action_net.copy()
                 # action_filter = action_net.copy()
                 # action_robot = action_net.copy()
 
@@ -372,7 +373,7 @@ class Deploy:
                 if key_comm.timestep < count_max_merge:
                     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
                                        + action_robot[:] / count_max_merge * (key_comm.timestep))
-                # print(action_robot[4])
+                #print(action_robot[4])
                 # 5.3 将计算出来的真实电机值, 通过LCM发送给机器人
                 if key_comm.stepCalibrate:
                     action_2 = np.array(self.cfg.env.default_joint_pos)
@@ -395,7 +396,7 @@ class Deploy:
         except KeyboardInterrupt:
             print(f'用户终止。')
         finally:
-            # print(f'count={key_comm.timestep}')
+            print(f'count={key_comm.timestep}')
             es.close()
             key_comm.stop()
             sp_logger.close()
@@ -412,7 +413,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/long_foot.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/long_foot_2.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()

@@ -80,6 +80,55 @@ def get_title_long():
         i += 1
     return title
 
+def get_title_ankle_follow_check():
+    i = 0
+    label = 'No,Time,'
+    title = ''
+    title += f'{label}'
+    for k in range(103):
+        if k == 0:
+            label = 'sin'
+            i = 0
+        elif k == 2:
+            label = 'cmd'
+            i = 0
+        elif k == 5:
+            label = 'omg'
+            i = 0
+        elif k == 8:
+            label = 'eul'
+            i = 0
+        elif k == 11:
+            label = 'n_pos'
+            i = 0
+        elif k == 23:
+            label = 'n_vel'
+            i = 0
+        elif k == 35:
+            label = 'n_act'
+            i = 0
+        elif k == 47:
+            label = 'r_pos'
+            i = 0
+        elif k == 59:
+            label = 'r_vel'
+            i = 0
+        elif k == 71:
+            label = 'r_act'
+            i = 0
+        elif k == 83:
+            label = 'uf_act'
+            i = 0
+        elif k == 95:
+            label = 'ankle_joint_cmd'
+            i = 0
+        elif k == 99:
+            label = 'ankle_joint_state'
+            i = 0
+        title += f'{label}_{i},'
+        i += 1
+    return title
+
 def get_title_delay():
     i = 0
     label = 'No,Time,'
@@ -132,6 +181,54 @@ def get_title_delay():
         i += 1
     return title
 
+def get_title_tau_mapping():
+    i = 0
+    label = 'No,Time,'
+    title = ''
+    title += f'{label}'
+    for k in range(119):
+        if k == 0:
+            label = 'sin'
+            i = 0
+        elif k == 2:
+            label = 'cmd'
+            i = 0
+        elif k == 5:
+            label = 'omg'
+            i = 0
+        elif k == 8:
+            label = 'eul'
+            i = 0
+        elif k == 11:
+            label = 'n_pos'
+            i = 0
+        elif k == 23:
+            label = 'n_vel'
+            i = 0
+        elif k == 35:
+            label = 'n_act'
+            i = 0
+        elif k == 47:
+            label = 'r_pos'
+            i = 0
+        elif k == 59:
+            label = 'r_vel'
+            i = 0
+        elif k == 71:
+            label = 'r_act'
+            i = 0
+        elif k == 83:
+            label = 'uf_act'
+            i = 0
+        elif k == 95:
+            label = 'tau_joint_state'
+            i = 0
+        elif k == 107:
+            label = 'tau_joint_cmd'
+            i = 0
+        title += f'{label}_{i},'
+        i += 1
+    return title
 
 class SimpleLogger:
     def __init__(self, path, title):
