@@ -70,14 +70,15 @@ class Zq12Cfg(LeggedRobotCfg):
         # PD Drive parameters:
         # stiffness = {'JOINT': 100.0}  # [N*m/rad]
         # damping = {'JOINT': 0.0}
-        stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 50.0, 'JOINT_Y6': 50.0,
-                     'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 50.0, 'JOINT_Z6': 50.0,
+        stiffness = {'JOINT_Y1': 200.0, 'JOINT_Y2': 200.0, 'JOINT_Y3': 200.0, 'JOINT_Y4': 200.0, 'JOINT_Y5': 200.0, 'JOINT_Y6': 200.0,
+                     'JOINT_Z1': 200.0, 'JOINT_Z2': 200.0, 'JOINT_Z3': 200.0, 'JOINT_Z4': 200.0, 'JOINT_Z5': 200.0, 'JOINT_Z6': 200.0,
                      }  # [N*m/rad]
         damping = {'JOINT_Y1': 5.0, 'JOINT_Y2': 5.0, 'JOINT_Y3': 5.0, 'JOINT_Y4': 5.0, 'JOINT_Y5': 3.0, 'JOINT_Y6': 3.0,
                    'JOINT_Z1': 5.0, 'JOINT_Z2': 5.0, 'JOINT_Z3': 5.0, 'JOINT_Z4': 5.0, 'JOINT_Z5': 3.0, 'JOINT_Z6': 3.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.5 # 调整为和返回给obs的一样
+        action_scale = 0.04 # 调整为和返回给obs的一样
+        # action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 
@@ -100,7 +101,8 @@ class Zq12Cfg(LeggedRobotCfg):
             action = 0.5 # action缩放系数
             height_measurements = 5.0
         clip_observations = 100.
-        clip_actions = 5 # 从100修改为5
+        # clip_actions = 5 # 从100修改为5
+        clip_actions = 100.
 
     class commands(LeggedRobotCfg.commands):
         step_joint_offset = 0.30  # rad

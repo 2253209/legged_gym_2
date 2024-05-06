@@ -141,7 +141,7 @@ class Zq12Robot(LeggedRobot):
             self.base_euler_xyz,  # 3
             (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12
             self.dof_vel * self.obs_scales.dof_vel,  # 12
-            self.actions * self.obs_scales.action + self.default_dof_pos#* self.cfg.control.action_scale + self.default_dof_pos,  # 12#改动测试
+            self.actions #* self.obs_scales.action + self.default_dof_pos#* self.cfg.control.action_scale + self.default_dof_pos,  # 12#改动测试
             ), dim=-1)
         # print(self.base_euler_xyz[0])
         # add perceptive inputs if not blind
