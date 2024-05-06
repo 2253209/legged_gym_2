@@ -186,7 +186,7 @@ def get_title_tau_mapping():
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(119):
+    for k in range(127):
         if k == 0:
             label = 'sin'
             i = 0
@@ -225,6 +225,12 @@ def get_title_tau_mapping():
             i = 0
         elif k == 107:
             label = 'tau_joint_cmd'
+            i = 0
+        elif k == 119:
+            label = 'ankle_joint_pos_cmd'
+            i = 0
+        elif k == 123:
+            label = 'ankle_joint_pos'
             i = 0
         title += f'{label}_{i},'
         i += 1

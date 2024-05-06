@@ -85,7 +85,7 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
+        kps = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
         # kps = np.array([400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], dtype=np.double)
         kds = np.array([10, 10, 10, 10, 4, 4, 10, 10, 10, 10, 4, 4], dtype=np.double)
 
@@ -100,8 +100,11 @@ class Deploy:
         self.cfg = cfg
         self.policy = torch.jit.load(path)
         self.obs_net = np.zeros((1, cfg.env.num_obs_net), dtype=np.float32)
-        self.obs_robot = np.zeros((1, cfg.env.num_obs_robot + 24), dtype=np.float32)
+        self.obs_robot = np.zeros((1, cfg.env.num_obs_robot + 24 + 8), dtype=np.float32)
         self.tau_cmd = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+        self.ankle_joint_pos_cmd = np.zeros(4, dtype=np.float32)
+        self.ankle_joint_pos = self.cfg.env.default_dof_pos[[4, 5, 10, 11]]
+        self.ankle_joint_vel = np.zeros(4, dtype=np.float32)
 
     def publish_action(self, joint_pos_cmd, joint_tau_cmd, kp, kd):
         command_for_robot = pd_targets_lcmt()
@@ -141,13 +144,15 @@ class Deploy:
         self.obs_net[0, 23:35] = vel * self.cfg.normalization.obs_scales.dof_vel  # 10
         self.obs_net[0, 35:47] = action  # 10
 
-    def combine_obs_real(self, pos, vel, action, a_0, tau_joint_state, tau_joint_cmd):
+    def combine_obs_real(self, pos, vel, action, a_0, tau_joint_state, tau_joint_cmd, ankle_joint_pos_cmd, ankle_joint_pos_state):
         self.obs_robot[0, 0:12] = pos
         self.obs_robot[0, 12:24] = vel
         self.obs_robot[0, 24:36] = action
         self.obs_robot[0, 36:48] = a_0
         self.obs_robot[0, 48:60] = tau_joint_state
         self.obs_robot[0, 60:72] = tau_joint_cmd
+        self.obs_robot[0, 72:76] = ankle_joint_pos_cmd
+        self.obs_robot[0, 76:80] = ankle_joint_pos_state
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
         """
@@ -226,6 +231,9 @@ class Deploy:
                     pos_net[[4, 5, 10, 11]] = p1, p2, p3, p4
                     vel_net[[4, 5, 10, 11]] = v1, v2, v3, v4
 
+                    self.ankle_joint_pos = pos_net[[4, 5, 10, 11]]
+                    self.ankle_joint_vel = vel_net[[4, 5, 10, 11]]
+
                     pos_last[:] = pos_net[:]
                 except Exception as e:
                     print(pos_robot[4], pos_robot[5], pos_robot[10], pos_robot[11])
@@ -244,7 +252,7 @@ class Deploy:
                 self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net * self.cfg.env.action_scale)
 
                 # 3.2 组合从真机得到的OBS, 其中action_real是上一帧的关节目标位置,p和v都是原始的.
-                self.combine_obs_real(pos_robot, vel_robot, action_robot, action_0, tau_robot, self.tau_cmd)
+                self.combine_obs_real(pos_robot, vel_robot, action_robot, action_0, tau_robot, self.tau_cmd, self.ankle_joint_pos_cmd, self.ankle_joint_pos)
 
                 # 3.3 !!!限制OBS可能出现的大数值!!!
                 self.obs_net = np.clip(self.obs_net, -self.cfg.normalization.clip_observations, self.cfg.normalization.clip_observations)
@@ -260,6 +268,12 @@ class Deploy:
 
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
+
+                    if key_comm.timestep < count_max_merge:
+                        action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                                           + action_robot[:] / count_max_merge * (key_comm.timestep))
+
+                    self.publish_action(action_robot, self.tau_cmd, kp, kd)
 
                 elif key_comm.stepTest:
                     pass
@@ -286,10 +300,6 @@ class Deploy:
                     ankle_motor_tau_cmd = convert_ankle_tau_2_motor(motor_joint_pos, ankle_tau_cmd)
                     self.tau_cmd[[4, 5, 10, 11]] = ankle_motor_tau_cmd
 
-                    # p1, p2, p3, p4 = (
-                    #     convert_p_ori_2_joint(action_robot[4], action_robot[5], action_robot[10], action_robot[11]))
-                    #
-                    # action_robot[[4, 5, 10, 11]] = p1, p2, p3, p4
                     action_robot = np.clip(action_robot,
                                            self.cfg.env.joint_limit_min,
                                            self.cfg.env.joint_limit_max)
@@ -301,14 +311,44 @@ class Deploy:
                     kp[5] = 0.0
                     kp[10] = 0.0
                     kp[11] = 0.0
+
+                    # ankle joint sin pos tracking test - start (delete this part after test)
+                    action_robot = np.array(self.cfg.env.default_joint_pos)
+                    self.tau_cmd = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+
+                    sin_period = 5
+                    sin_amp = 0.0
+                    cur_time = key_comm.timestep * 0.01
+
+                    self.ankle_joint_pos_cmd[0] = sin_amp * np.sin(2 * np.pi / sin_period * cur_time) + self.cfg.env.default_dof_pos[4]
+                    self.ankle_joint_pos_cmd[1] = sin_amp * np.sin(2 * np.pi / sin_period * cur_time) + self.cfg.env.default_dof_pos[5]
+                    self.ankle_joint_pos_cmd[2] = sin_amp * np.sin(2 * np.pi / sin_period * cur_time) + self.cfg.env.default_dof_pos[10]
+                    self.ankle_joint_pos_cmd[3] = sin_amp * np.sin(2 * np.pi / sin_period * cur_time) + self.cfg.env.default_dof_pos[11]
+
+                    # ankle_tau_cmd = self.ankle_tau_cal(self.ankle_joint_pos_cmd, self.ankle_joint_pos, self.ankle_joint_vel)
+                    #
+                    # motor_joint_pos = pos_robot[[4, 5, 10, 11]]
+                    # ankle_motor_tau_cmd = convert_ankle_tau_2_motor(motor_joint_pos, ankle_tau_cmd)
+                    # self.tau_cmd[[4, 5, 10, 11]] = ankle_motor_tau_cmd
+
+                    kp[:] = self.cfg.robot_config.kps[:]
+                    kd[:] = self.cfg.robot_config.kds[:]
+
+                    kp[4] = 0.0
+                    kp[5] = 0.0
+                    kp[10] = 0.0
+                    kp[11] = 0.0
+
+                    # self.publish_action(action_robot, self.tau_cmd, kp, kd)
+                    # end
                 else:
                     pass
 
-                if key_comm.timestep < count_max_merge:
-                    action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
-                                       + action_robot[:] / count_max_merge * (key_comm.timestep))
-
-                self.publish_action(action_robot, self.tau_cmd, kp, kd)
+                # if key_comm.timestep < count_max_merge:
+                #     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                #                        + action_robot[:] / count_max_merge * (key_comm.timestep))
+                #
+                # self.publish_action(action_robot, self.tau_cmd, kp, kd)
 
                 # 3.4 将obs写入文件，在logs/dep_log/下
 
