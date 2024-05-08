@@ -158,6 +158,7 @@ class Zq12Robot(LeggedRobot):
         super().reset_idx(env_ids)
         for i in range(self.obs_history.maxlen):
             self.obs_history[i][env_ids] *= 0
+        self.ref_count[env_ids] = 0
 
     def _reset_dofs(self, env_ids):
         if self.cfg.domain_rand.randomize_init_state:
@@ -243,7 +244,7 @@ class Zq12Robot(LeggedRobot):
         stand_ids = (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
         # 在这里重置重设指令的步态生成器的初始计数值
-        self.ref_count[env_ids] = 0
+        # self.ref_count[env_ids] = 0  # 唐博指出这里有个BUG,在resample command的时候不应该重置步态.
 
         # 设置所有env的正弦生成标志，如果cmd = 0则不生成正弦步态。
         # self.switch_step_or_stand[:] = 1

@@ -91,7 +91,7 @@ class ZqCfg(LeggedRobotCfg):
 
         class noise_scales(LeggedRobotCfg.noise.noise_scales):
             dof_pos = 0.05
-            dof_vel = 0.5
+            dof_vel = 0.2
             ang_vel = 0.1
             lin_vel = 0.05
             quat = 0.03
