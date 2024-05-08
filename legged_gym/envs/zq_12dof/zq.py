@@ -234,8 +234,13 @@ class Zq12Robot(LeggedRobot):
 
     def check_termination(self):
         super().check_termination()
-        self.reset_buf2 = self.root_states[:, 2] < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
+        measured_heights = torch.sum(
+            self.rigid_state[:, self.feet_indices, 2], dim=1) / 2
+        base_height = self.root_states[:, 2] - (measured_heights - 0.05)
+        self.reset_buf2 = base_height < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
         self.reset_buf |= self.reset_buf2
+        # self.reset_buf2 = self.root_states[:, 2] < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
+        # self.reset_buf |= self.reset_buf2
 
     def _resample_commands(self, env_ids):
         # 在reset_index和episode_length_buf==cfg.commands.resampling_time的时候，重新设定指令

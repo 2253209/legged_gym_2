@@ -331,7 +331,7 @@ class Deploy:
                 # 这里可能有问题
                 # 当状态是“神经网络模式”时：使用神经网络输出动作。
 
-                # action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                # action_0 = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
                 action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
 
                 scale_1 = 0.3
@@ -350,7 +350,7 @@ class Deploy:
                 action_net[10] += cos_pos[0, 1] * scale_1
 
                 # action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
-                action_0 = action_net.copy()
+                # action_0 = action_net.copy()
 
                 kp[:] = self.cfg.robot_config.kps[:]
                 kd[:] = self.cfg.robot_config.kds[:]

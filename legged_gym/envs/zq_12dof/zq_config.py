@@ -41,7 +41,8 @@ class Zq12Cfg(LeggedRobotCfg):
         queue_len_act = 3
 
     class terrain(LeggedRobotCfg.terrain):
-        mesh_type = 'plane'
+        # mesh_type = 'plane'
+        mesh_type = 'trimesh'
         measure_heights = False
         measured_points_x = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]  # 1mx1m rectangle (without center line)
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
@@ -140,7 +141,7 @@ class Zq12Cfg(LeggedRobotCfg):
         terminate_after_contacts_on = []
         flip_visual_attachments = False
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
-        terminate_body_height = 0.6  #修改
+        terminate_body_height = 0.3  #修改
         disable_gravity = False
         fix_base_link = False
 
