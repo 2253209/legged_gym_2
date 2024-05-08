@@ -84,6 +84,19 @@ class ZqCfg(LeggedRobotCfg):
         pos = [-3, -3, 3]  # [m]
         lookat = [0., 0, 1.]  # [m]
 
+    class noise(LeggedRobotCfg.noise):
+        # 原版噪声太大,参考星动纪元的值调小
+        add_noise = True
+        noise_level = 0.6    # scales other values
+
+        class noise_scales(LeggedRobotCfg.noise.noise_scales):
+            dof_pos = 0.05
+            dof_vel = 0.5
+            ang_vel = 0.1
+            lin_vel = 0.05
+            quat = 0.03
+            height_measurements = 0.1
+
     class commands(LeggedRobotCfg.commands):
         class ranges(LeggedRobotCfg.commands.ranges):
             # lin_vel_x = [-0.3, 1.0]  # min max [m/s]

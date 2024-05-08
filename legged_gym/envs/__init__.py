@@ -48,6 +48,9 @@ import os
 
 from legged_gym.utils.task_registry import task_registry
 
+from .zq12_nosin.zq import Zq2Robot
+from .zq12_nosin.zq_config import Zq2Cfg, Zq2CfgPPO
+
 task_registry.register("anymal_c_rough", Anymal, AnymalCRoughCfg(), AnymalCRoughCfgPPO())
 task_registry.register("anymal_c_flat", Anymal, AnymalCFlatCfg(), AnymalCFlatCfgPPO())
 task_registry.register("anymal_b", Anymal, AnymalBRoughCfg(), AnymalBRoughCfgPPO())
@@ -55,3 +58,5 @@ task_registry.register("a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO())
 task_registry.register("cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO())
 task_registry.register("zq", ZqRobot, ZqCfg(), ZqCfgPPO())
 task_registry.register("zq12", Zq12Robot, Zq12Cfg(), Zq12CfgPPO())
+task_registry.register("zq2", Zq2Robot, Zq2Cfg(), Zq2CfgPPO())
+
