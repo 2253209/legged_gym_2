@@ -50,7 +50,7 @@ def get_euler_xyz_tensor(quat):
     return euler_xyz
 
 
-class Zq12Robot(LeggedRobot):
+class HLRobot(LeggedRobot):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
         # self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
@@ -252,12 +252,8 @@ class Zq12Robot(LeggedRobot):
 
     def compute_reference_states(self):
         phase = self.ref_count * self.dt * self.cfg.commands.step_freq * 2.
-        # right first
         mask_right = (torch.floor(phase) + 1) % 2
         mask_left = torch.floor(phase) % 2
-        # left first
-        # mask_right = torch.floor(phase) % 2
-        # mask_left = (torch.floor(phase) + 1) % 2
         cos_pos = (1 - torch.cos(2 * torch.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
         self.cos_pos[:, 0] = cos_pos * mask_right
         self.cos_pos[:, 1] = cos_pos * mask_left

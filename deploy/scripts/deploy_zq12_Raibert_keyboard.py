@@ -50,12 +50,12 @@ class DeployCfg:
     class env:
         # dt = 0.01
         dt = 0.01
-        step_freq = 1.5  # Hz
+        step_freq = 1#1.5  # Hz
 
         num_actions = 12
         num_obs_net = 47  # 2+3+3+3+12+12+12
         num_obs_robot = 48  # 12+12+12+12
-        action_scale = 0.25
+        action_scale = 0.15
         low_pass_rate = 1.0
         # 神经网络默认初始状态
         default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31, 0.03,
@@ -250,6 +250,12 @@ class Deploy:
 
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
+
+                    if key_comm.timestep < count_max_merge:
+                        action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                                           + action_robot[:] / count_max_merge * (key_comm.timestep))
+
+                    self.publish_action(action_robot, kp, kd)
                     # pass
                 elif key_comm.stepTest:
                     pass
@@ -278,14 +284,19 @@ class Deploy:
                     action_robot = np.clip(action_robot,
                                            self.cfg.env.joint_limit_min,
                                            self.cfg.env.joint_limit_max)
+                    if key_comm.timestep < count_max_merge:
+                        action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                                           + action_robot[:] / count_max_merge * (key_comm.timestep))
+
+                    self.publish_action(action_robot, kp, kd)
                 else:
                     pass
 
-                if key_comm.timestep < count_max_merge:
-                    action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
-                                       + action_robot[:] / count_max_merge * (key_comm.timestep))
-
-                self.publish_action(action_robot, kp, kd)
+                # if key_comm.timestep < count_max_merge:
+                #     action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                #                        + action_robot[:] / count_max_merge * (key_comm.timestep))
+                #
+                # self.publish_action(action_robot, kp, kd)
 
                 # 3.4 将obs写入文件，在logs/dep_log/下
                 sp_logger.save(np.concatenate((self.obs_net.copy(), self.obs_robot.copy()), axis=1), count_total, frq)
@@ -313,8 +324,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/05_02/policy_1.pt'
-        # args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/long_foot.pt'
+        # args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/05-09-tang-delay15ms/90000.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_5-9_nodelay_1Hz_lowfeet.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()

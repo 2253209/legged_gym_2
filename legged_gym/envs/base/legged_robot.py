@@ -86,7 +86,7 @@ class LeggedRobot(BaseTask):
         self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
         # step physics and render each frame
         self.render()
-        #time.sleep(.5)
+        # time.sleep(.05)
         for _ in range(self.cfg.control.decimation):
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
@@ -94,7 +94,7 @@ class LeggedRobot(BaseTask):
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
-            self.dof_vel = (self.dof_pos - self.last_dof_pos) / self.dt
+            #self.dof_vel = (self.dof_pos - self.last_dof_pos) / self.dt
 
         self.post_physics_step()
 
@@ -503,8 +503,8 @@ class LeggedRobot(BaseTask):
         self.root_states = gymtorch.wrap_tensor(actor_root_state)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
         self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]
-        self.dof_vel2 = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
-        self.dof_vel = torch.zeros_like(self.dof_pos)
+        self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
+        # self.dof_vel = torch.zeros_like(self.dof_pos)
 
         self.base_quat = self.root_states[:, 3:7]
         if self.cfg.env.num_actions == 12:

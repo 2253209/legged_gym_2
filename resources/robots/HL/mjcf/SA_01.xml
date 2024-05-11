@@ -1,0 +1,293 @@
+<mujoco model="hl">
+  <compiler angle="radian" meshdir="../meshes/"/>
+  <statistic meansize="0.175672" extent="1.42462" center="0.0113815 2.47552e-05 -0.298814"/>
+  <default> <geom contype="0" conaffinity="0"/> </default>
+  <option timestep="0.001"/>
+  <asset>
+    <mesh name="BASE" file="BASE.STL"/>
+    <mesh name="Z1" file="Z1.STL"/>
+    <mesh name="Z2" file="Z2.STL"/>
+    <mesh name="Z3" file="Z3.STL"/>
+    <mesh name="Z4" file="Z4.STL"/>
+    <mesh name="Z5" file="Z5.STL"/>
+    <mesh name="Z6" file="Z6.STL"/>
+
+    <mesh name="Y1" file="Y1.STL"/>
+    <mesh name="Y2" file="Y2.STL"/>
+    <mesh name="Y3" file="Y3.STL"/>
+    <mesh name="Y4" file="Y4.STL"/>
+    <mesh name="Y5" file="Y5.STL"/>
+    <mesh name="Y6" file="Y6.STL"/>
+  </asset>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1=".3 .5 .7" rgb2="0 0 0" width="32" height="512"/>
+    <texture name="body" type="cube" builtin="flat" mark="cross" width="128" height="128" rgb1="0.8 0.6 0.4" rgb2="0.8 0.6 0.4" markrgb="1 1 1" random="0.01"/>
+    <material name="body" texture="body" texuniform="true" rgba="0.8 0.6 .4 1"/>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1=".1 .2 .3" rgb2=".2 .3 .4"/>
+    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+  </asset>
+
+  <asset>
+    <material name='ankle_acutator1' rgba='0.792157 0.819608 0.933333 1'/>
+    <material name='ankle_link1' rgba='0.5 0.5 1.0 1.0'/>
+    <material name='ankle_acutator2' rgba='0.792157 0.819608 0.933333 1'/>
+    <material name='ankle_link2' rgba='0.5 0.5 1.0 1.0'/>
+  </asset>
+
+  <default>
+    <default class='ankle_acutator1'>
+      <geom type='cylinder' mass='0.1' size='0.025 0.01' pos='0 0 0' euler='1.57 0 0' contype='0' conaffinity='0' material='ankle_acutator1'/>
+    </default>
+    <default class='ankle_link1'>
+      <geom type='cylinder' mass='0.06' size='0.006 0.108' pos='0 0 -0.108' euler='0 0 0' contype='0' conaffinity='0' material='ankle_link1'/>
+    </default>
+    <default class='ankle_acutator2'>
+      <geom type='cylinder' mass='0.1' size='0.025 0.01' pos='0 0 0' euler='1.57 0 0' contype='0' conaffinity='0' material='ankle_acutator2'/>
+    </default>
+    <default class='ankle_link2'>
+      <geom type='cylinder' mass='0.04' size='0.006 0.06' pos='0 0 -0.06' euler='0 0 0' contype='0' conaffinity='0' material='ankle_link2'/>
+    </default>
+  </default>
+
+  <visual>
+    <map force="0.1" zfar="30"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global offwidth="2560" offheight="1440" elevation="-20" azimuth="120"/>
+  </visual>
+
+  <option timestep="0.002">
+    <flag energy="enable" contact="enable"/>
+  </option>
+
+  <option cone="elliptic" impratio="1" integrator="implicitfast" jacobian="dense" solver="Newton" iterations="1000" tolerance="1e-10" apirate="1000"/>
+
+  <worldbody>
+    <geom name="floor" pos="0 0 0" size="0 0 .05" type="plane" material="grid" condim="4" contype="1" conaffinity="1" />
+    <light name="spotlight" mode="targetbodycom" target="BASE" diffuse=".5 .5 .5" specular="0.8 0.8 0.7" pos="0 0 50" cutoff="10"/>
+    <body name="BASE" pos="0 0 .789">
+    <!-- <body name="BASE" pos="0 0 1"> -->
+      <!-- <inertial pos="0.0201327 2.90249e-07 0.375289" quat="0.99283 7.1248e-06 0.119531 -4.64987e-06" mass="15" diaginertia="0.174406 0.141729 0.0789023"/> -->
+      <inertial pos="0.0201327 2.90249e-07 0.375289" quat="0.99283 7.1248e-06 0.119531 -4.64987e-06" mass="10" diaginertia="0.142832 0.088957 0.087302"/>
+      <!-- <joint name="dummy_joint" type="free"/> -->
+      <freejoint/> 
+      <!-- <joint name="dummy_joint"/> -->
+      <geom type="mesh" contype="1" conaffinity="1" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="BASE"/>
+      <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="BASE"/>
+      <camera name="side" pos="0 -5 1" xyaxes="1 0 0 0 1 2" mode="trackcom"/>
+      <site name="imu" pos="0 0 0"/>
+      
+      <body name="Z1" pos="0.0345 0.075 0">
+        <inertial pos="-1.63205e-05 -7.4182e-09 -7.50723e-05" quat="1.28524e-06 0.70711 -1.91849e-07 0.707103" mass="0.643186" diaginertia="0.0011757 0.000868166 0.000649507"/>
+        <joint name="ZJ1" pos="0 0 0" axis="1 0 0" damping="5" limited="false" range="-0.523 0.785"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Z1"/>
+        <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="Z1"/>
+        <body name="Z2">
+          <inertial pos="-1.59489e-09 0 -0.118946" quat="0.707107 0 0 0.707106" mass="0.795996" diaginertia="0.00183227 0.00133456 0.000941758"/>
+          <joint name="ZJ2" pos="0 0 0" axis="0 0 1" damping="5" limited="false" range="-0.785 0.785"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Z2"/>
+          <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="Z2"/>
+          <body name="Z3" pos="0 0 -0.126"  quat="0.976 0 -0.216 0">
+          <!-- <body name="Z3" pos="0 0 -0.126"> -->
+            <inertial pos="-0.00178904 3.34267e-08 -0.131403" quat="0.706517 -0.0289292 -0.0289295 0.706512" mass="6" diaginertia="0.0331969 0.0306625 0.00948311"/>
+            <joint name="ZJ3" pos="0 0 0" axis="0 1 0" damping="5" limited="false" range="-1.134 1.204"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Z3"/>
+            <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="Z3"/>
+            <body name="Z4" pos="0 0 -0.3"  quat="0.906 0 0.423 0">
+            <!-- <body name="Z4" pos="0 0 -0.3"> -->
+              <inertial pos="-0.00655574 -0.00174545 -0.152171" quat="0.714768 0.0069051 0.00879745 0.699273" mass="2.38165" diaginertia="0.0259847 0.0244417 0.0030829"/>
+              <joint name="ZJ4" pos="0 0 0" axis="0 1 0" damping="5" limited="true" range="-2.268 2.268"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Z4"/>
+              <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="Z4"/>
+
+              <!-- <body name="Z4A" pos="0.0 -0.043 -0.154" euler='0 -0.7617 0'>
+                <joint name="ZJ4A" pos="0 0 0" axis="0 1 0" limited="true" range="-0.82 1.38" damping="5"/>
+                <geom name="ankle_acutator1_l" class='ankle_acutator1'/>
+                <geom name="ankle_acutator1_1_l" mass='0' type='capsule' size ='0.005 0.0225' pos='-0.0225 0 0.0' euler='0 1.57 0' contype='0' conaffinity='0' rgba='1.0 0.5 0.5 1.0'/>
+                <body name="Z4A1" pos="-0.045 0.0 -0.0" euler='0 0 0'>
+                  <joint name='ZA_constaint' type='ball' limited='false' damping='0.010000'/>
+                  <body name="Z4A2" pos="0.0 0.0 0.0" euler='0 0.7617 0'>
+                    <geom name="ankle_link1_l" class='ankle_link1'/>
+                  </body>
+                </body>
+              </body>
+
+              <body name="Z4B" pos="0 0.033 -0.25" euler='0 -0.7617 0'>
+                <joint name="ZJ4B" pos="0 0 0" axis="0 1 0" limited="true" range="-1 0.81" damping="5"/>
+                <geom name="ankle_acutator2_l" class='ankle_acutator2'/>
+                <geom name="ankle_acutator2_1_l" mass='0' type='capsule' size ='0.005 0.0225' pos='-0.0225 0 0.0' euler='0 1.57 0' contype='0' conaffinity='0' rgba='1.0 0.5 0.5 1.0'/>
+
+                <body name="Z4B1" pos="-0.045 0.0 -0.0" euler='0 0 0'>
+                  <joint name='ZB_constaint' type='ball' limited='false' damping='0.010000'/>
+                  <body name="Z4B2" pos="0.0 0.0 0.0" euler='0 0.7617 0'>
+                    <geom name="ankle_link2_l" class='ankle_link2'/>
+                  </body>
+                </body>
+              </body> -->
+
+              <!-- <body name="Z5" pos="0 0 -0.37"> -->
+              <body name="Z5" pos="0 0 -0.37">
+                <inertial pos="-1.22576e-08 -1.36554e-07 -2.04408e-08" quat="-0.000898801 0.708427 -0.000902168 0.705783" mass="0.0150389" diaginertia="3.92632e-06 3.92118e-06 3.92116e-06"/>
+                <joint name="ZJ5" pos="0 0 0" axis="0 1 0" limited="true" range="-1.57 1.57" damping="5.0"/>
+                <!-- <joint name="ZJ5" pos="0 0 0" axis="0 1 0" limited="true" range="-45 45" damping="0.01"/> -->
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Z5"/>
+                <body name="Z6" pos="0 0 0.0" quat="0.976 0 -0.216 0">
+                  <inertial pos="0.0598388 -9.16885e-05 -0.041539" quat="0.00202343 0.728933 0.0034371 0.684574" mass="0.470445" diaginertia="0.00298476 0.00285776 0.000282574"/>
+                  <joint name="ZJ6" pos="0 0 0" axis="1 0 0" limited="true" range="-1.57 1.57"  damping="5.0"/>
+                  <!-- <joint name="ZJ6" pos="0 0 0" axis="1 0 0" limited="true" range="-20 20"  damping="0.01"/> -->
+                  <geom  name="foot_l" type="mesh" contype="1" conaffinity="1" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Z6"/>
+                  <site name='foot_l'/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <body name="Y1" pos="0.0345 -0.075 0">
+        <inertial pos="-1.63205e-05 -7.4182e-09 -7.50723e-05" quat="1.28524e-06 0.70711 -1.91849e-07 0.707103" mass="0.643186" diaginertia="0.0011757 0.000868166 0.000649507"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba=".9 .9 .1 1" mesh="Y1"/>
+        <geom type="mesh" rgba=".9 .9 .1 1" mesh="Y1"/>
+        <joint name="YJ1" pos="0 0 0" axis="-1 0 0" damping="5" limited="false" range="-0.523 0.785"/>
+        <body name="Y2">
+          <inertial pos="-1.59489e-09 0 -0.118946" quat="0.707107 0 0 0.707106" mass="0.795996" diaginertia="0.00183227 0.00133456 0.000941758"/>
+          <joint name="YJ2" pos="0 0 0" axis="0 0 -1" damping="5" limited="false" range="-0.785 0.785"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Y2"/>
+          <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="Y2"/>
+          <body name="Y3" pos="0 0 -0.126" quat="0.976 0 -0.216 0">
+          <!-- <body name="Y3" pos="0 0 -0.126"> -->
+            <inertial pos="-0.0017888 -1.37818e-07 -0.131404" quat="0.706518 -0.0289251 -0.0289242 0.706512" mass="6" diaginertia="0.0331971 0.0306629 0.00948288"/>
+            <joint name="YJ3" pos="0 0 0" axis="0 -1 0" damping="5" limited="false" range="-1.134 1.204"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Y3"/>
+            <geom type="mesh" rgba=".9 .9 .1 1" mesh="Y3"/>
+            <body name="Y4" pos="0 0 -0.3"  quat="0.906 0 0.423 0">
+            <!-- <body name="Y4" pos="0 0 -0.3"> -->
+              <inertial pos="-0.0065564 0.00174533 -0.152175" quat="0.699271 0.00879962 0.00690624 0.714769" mass="2.38172" diaginertia="0.0259857 0.0244426 0.00308297"/>
+              <!-- <joint name="YJ4" pos="0 0 0" axis="0 -1 0" damping="0.01" limited="false" range="2.268 0"/> -->
+              <joint name="YJ4" pos="0 0 0" axis="0 1 0" damping="5" limited="true" range="-2.268 2.268"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="Y4"/>
+              <geom type="mesh" rgba=".9 .9 .1 1" mesh="Y4"/>
+              <!-- <body name="Y4A" pos="0.0 0.043 -0.154" euler='0 -0.7617 0'>
+                <joint name="YJ4A" pos="0 0 0" axis="0 1 0" limited="true" range="-0.4 0.7" damping="5"/>
+                <geom name="ankle_acutator1_r" class='ankle_acutator1'/>
+                <geom name="ankle_acutator1_1_r" mass='0' type='capsule' size ='0.005 0.0225' pos='-0.0225 0 0.0' euler='0 1.57 0' contype='0' conaffinity='0' rgba='1.0 0.5 0.5 1.0'/>
+                <body name="Y4A1" pos="-0.045 0.0 -0.0" euler='0 0 0'>
+                  <joint name='YA_constaint' type='ball' limited='false' damping='0.010000'/>                 
+                  <body name="Y4A2" pos="0.0 0.0 0.0" euler='0 0.7617 0'>
+                    <geom name="ankle_link1_r" class='ankle_link1'/>
+                  </body>
+                </body>
+              </body>
+
+              <body name="Y4B" pos="0 -0.033 -0.25" euler='0 -0.7617 0'>
+                <joint name="YJ4B" pos="0 0 0" axis="0 1 0" limited="true" range="-1 0.81" damping="5"/>
+                <geom name="ankle_acutator2_r" class='ankle_acutator2'/>
+                <geom name="ankle_acutator2_1_r" mass='0' type='capsule' size ='0.005 0.0225' pos='-0.0225 0 0.0' euler='0 1.57 0' contype='0' conaffinity='0' rgba='1.0 0.5 0.5 1.0'/>
+
+                <body name="Y4B1" pos="-0.045 0.0 0" euler='0 0 0'>
+                  <joint name='YB_constaint' type='ball' limited='false' damping='0.010000'/>
+                  <body name="Y4B2" pos="0.0 0.0 0.0" euler='0 0.7617 0'>
+                    <geom name="ankle_link2_r" class='ankle_link2'/>
+                  </body>
+                </body>
+              </body> -->
+              <body name="Y5" pos="0 0 -0.37">
+              <!-- <body name="Y5" pos="0 0 -0.37"  quat="0.985 0 0.174 0"> -->
+                <inertial pos="-1.22576e-08 1.36554e-07 2.04408e-08" quat="-0.000902168 0.705783 -0.000898801 0.708427" mass="0.0150389" diaginertia="3.92632e-06 3.92118e-06 3.92116e-06"/>
+                <joint name="YJ5" pos="0 0 0" axis="0 1 0" limited="true" range="-1.57 1.57" damping="5"/>
+                <!-- <joint name="YJ5" pos="0 0 0" axis="0 1 0" limited="true" range="-45 45" damping="0.01"/> -->
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba=".9 .9 .1 1" mesh="Y5"/>
+                <body name="Y6" pos="0 0 0.0"  quat="0.976 0 -0.216 0">
+                <!-- <body name="Y6" pos="0 0 0.0"> -->
+                  <inertial pos="0.0598389 9.18999e-05 -0.041539" quat="-0.00203281 0.728932 -0.00344922 0.684574" mass="0.470445" diaginertia="0.00298476 0.00285775 0.000282574"/>
+                  <joint name="YJ6" pos="0 0 0" axis="1 0 0" limited="true" range="-1.57 1.57" damping="5"/>
+                  <!-- <joint name="YJ6" pos="0 0 0" axis="1 0 0" limited="true" range="-20 20" damping="0.01"/> -->
+                  <geom  name="foot_r" type="mesh" contype="1" conaffinity="1" group="1" density="0" rgba=".9 .9 .1 1" mesh="Y6"/>
+                  <site name='foot_r'/>
+                </body>
+              </body>
+
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- <equality>
+    <connect name='YA_constaint' body1='Y6' body2='Y4A2' anchor='-0.04346666218  0.0479 -0.01164685703' active='true' solimp="0.95 1.0 0.00005 0.5 2" solref="0.001 1.0"/>
+    <connect name='YB_constaint' body1='Y6' body2='Y4B2' anchor='-0.04346666218 -0.0386 -0.01164685703' active='true' solimp="0.95 1.0 0.00005 0.5 2" solref="0.001 1.0"/>
+    <connect name='ZA_constaint' body1='Z6' body2='Z4A2' anchor='-0.04346666218 -0.0479 -0.01164685703' active='true' solimp="0.95 1.0 0.00005 0.5 2" solref="0.001 1.0"/>
+    <connect name='ZB_constaint' body1='Z6' body2='Z4B2' anchor='-0.04346666218  0.0386 -0.01164685703' active='true' solimp="0.95 1.0 0.00005 0.5 2" solref="0.001 1.0"/>
+  </equality> -->
+
+  <actuator>
+
+    <motor name="Z1" joint="ZJ1" gear="1"/>
+    <motor name="Z2" joint="ZJ2" gear="1"/>
+    <motor name="Z3" joint="ZJ3" gear="1"/>
+    <motor name="Z4" joint="ZJ4" gear="1"/>
+    <!-- <motor name="Z4A" joint="ZJ4A" gear="1"/>
+    <motor name="Z4B" joint="ZJ4B" gear="1"/> -->
+    <motor name="Z5" joint="ZJ5" gear="1"/>
+    <motor name="Z6" joint="ZJ6" gear="1"/>
+    <motor name="Y1" joint="YJ1" gear="1"/>
+    <motor name="Y2" joint="YJ2" gear="1"/>
+    <motor name="Y3" joint="YJ3" gear="1"/>
+    <motor name="Y4" joint="YJ4" gear="1"/>
+    <!-- <motor name="Y4A" joint="YJ4A" gear="1"/>
+    <motor name="Y4B" joint="YJ4B" gear="1"/> -->
+    <motor name="Y5" joint="YJ5" gear="1"/>
+    <motor name="Y6" joint="YJ6" gear="1"/>
+   
+  </actuator>
+
+  <contact>
+    <pair name="non-isotropic0" geom1="floor" geom2="foot_r" condim="4" friction="1.0 1.0 1.0 1.0 1.0"/>
+    <pair name="non-isotropic1" geom1="floor" geom2="foot_l" condim="4" friction="1.0 1.0 1.0 1.0 1.0"/>
+  </contact>
+
+  <sensor>
+    <force name='force_r'  site='foot_r' />
+    <force name='force_l'  site='foot_l' />
+    <jointpos name="Z1_pos" joint="ZJ1" />
+    <jointpos name="Z2_pos" joint="ZJ2" />
+    <jointpos name="Z3_pos" joint="ZJ3" />
+    <jointpos name="Z4_pos" joint="ZJ4" />
+    <!-- <jointpos name="ZJ4A_pos" joint="ZJ4A" />
+    <jointpos name="ZJ4B_pos" joint="ZJ4B" /> -->
+    <jointpos name="Z5_pos" joint="ZJ5" />
+    <jointpos name="Z6_pos" joint="ZJ6" />
+
+    <jointpos name="Y1_pos" joint="YJ1" />
+    <jointpos name="Y2_pos" joint="YJ2" />
+    <jointpos name="Y3_pos" joint="YJ3" />
+    <jointpos name="Y4_pos" joint="YJ4" />
+    <!-- <jointpos name="YJ4A_pos" joint="YJ4A" />
+    <jointpos name="YJ4B_pos" joint="YJ4B" /> -->
+    <jointpos name="Y5_pos" joint="YJ5" />
+    <jointpos name="Y6_pos" joint="YJ6" />
+
+    <jointvel name="Z1_vel" joint="ZJ1" />
+    <jointvel name="Z2_vel" joint="ZJ2" />
+    <jointvel name="Z3_vel" joint="ZJ3" />
+    <jointvel name="Z4_vel" joint="ZJ4" />
+    <!-- <jointvel name="ZJ4A_vel" joint="ZJ4A" />
+    <jointvel name="ZJ4B_vel" joint="ZJ4B" /> -->
+    <jointvel name="Z5_vel" joint="ZJ5" />
+    <jointvel name="Z6_vel" joint="ZJ6" />
+    <jointvel name="Y1_vel" joint="YJ1" />
+    <jointvel name="Y2_vel" joint="YJ2" />
+    <jointvel name="Y3_vel" joint="YJ3" />
+    <jointvel name="Y4_vel" joint="YJ4" />
+    <!-- <jointvel name="YJ4A_vel" joint="YJ4A" />
+    <jointvel name="YJ4B_vel" joint="YJ4B" /> -->
+    <jointvel name="Y5_vel" joint="YJ5" />
+    <jointvel name="Y6_vel" joint="YJ6" />
+    <accelerometer name="BodyAcc" site="imu"/>
+    <velocimeter name="BodyVel" site="imu"/>
+    <gyro name="BodyGyro" site="imu"/>
+    <framepos name="BodyPos" objtype="site" objname="imu"/>
+    <framequat name="BodyQuat" objtype="site" objname="imu"/>
+  </sensor>
+</mujoco>
