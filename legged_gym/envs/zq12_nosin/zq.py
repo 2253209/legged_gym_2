@@ -50,7 +50,7 @@ def get_euler_xyz_tensor(quat):
     return euler_xyz
 
 
-class Zq12Robot(LeggedRobot):
+class Zq2Robot(LeggedRobot):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
         # self.target_joint_angles = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
@@ -135,7 +135,7 @@ class Zq12Robot(LeggedRobot):
         #     self.cos_pos
         #     ), dim=-1)
         self.obs_buf = torch.cat((
-            self.cos_pos,  # 2
+            # self.cos_pos,  # 2
             self.commands[:, :3] * self.commands_scale,  # 3
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz,  # 3
@@ -158,8 +158,6 @@ class Zq12Robot(LeggedRobot):
         super().reset_idx(env_ids)
         for i in range(self.obs_history.maxlen):
             self.obs_history[i][env_ids] *= 0
-        self.ref_count[env_ids] = 0
-
 
     def _reset_dofs(self, env_ids):
         if self.cfg.domain_rand.randomize_init_state:
@@ -221,27 +219,22 @@ class Zq12Robot(LeggedRobot):
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
 
-        noise_vec[0:2] = 0.  # cos 2
-        noise_vec[2:5] = 0.  # commands 3
-        noise_vec[5:8] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel  # 0.2 * 1 * 0.25 = 0.05
-        noise_vec[8:11] = noise_scales.gravity * noise_level  # 0.05 * 1. = 0.05
+        # noise_vec[0:2] = 0.  # cos 2
+        noise_vec[0:3] = 0.  # commands 3
+        noise_vec[3:6] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel  # 0.2 * 1 * 0.25 = 0.05
+        noise_vec[6:9] = noise_scales.gravity * noise_level  # 0.05 * 1. = 0.05
 
-        noise_vec[11:23] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos  # 0.01 * 1 * 1. = 0.01
-        noise_vec[23:35] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel  # 1.5 * 1 * 0.05 = 0.075
-        noise_vec[35:47] = 0.  # previous actions
+        noise_vec[9:21] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos  # 0.01 * 1 * 1. = 0.01
+        noise_vec[21:33] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel  # 1.5 * 1 * 0.05 = 0.075
+        noise_vec[33:45] = 0.  # previous actions
         # if self.cfg.terrain.measure_heights:
         #     noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec
 
     def check_termination(self):
         super().check_termination()
-        measured_heights = torch.sum(
-            self.rigid_state[:, self.feet_indices, 2], dim=1) / 2
-        base_height = self.root_states[:, 2] - (measured_heights - 0.05)
-        self.reset_buf2 = base_height < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
+        self.reset_buf2 = self.root_states[:, 2] < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
         self.reset_buf |= self.reset_buf2
-        # self.reset_buf2 = self.root_states[:, 2] < self.cfg.asset.terminate_body_height  # 0.3!!!!!!!!!!!!!!!!!
-        # self.reset_buf |= self.reset_buf2
 
     def _resample_commands(self, env_ids):
         # 在reset_index和episode_length_buf==cfg.commands.resampling_time的时候，重新设定指令
@@ -250,7 +243,7 @@ class Zq12Robot(LeggedRobot):
         stand_ids = (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
         # 在这里重置重设指令的步态生成器的初始计数值
-        # self.ref_count[env_ids] = 0  # 唐博指出这里有个BUG,在resample command的时候不应该重置步态.
+        self.ref_count[env_ids] = 0
 
         # 设置所有env的正弦生成标志，如果cmd = 0则不生成正弦步态。
         # self.switch_step_or_stand[:] = 1
@@ -258,12 +251,8 @@ class Zq12Robot(LeggedRobot):
 
     def compute_reference_states(self):
         phase = self.ref_count * self.dt * self.cfg.commands.step_freq * 2.
-        # right first
         mask_right = (torch.floor(phase) + 1) % 2
         mask_left = torch.floor(phase) % 2
-        # left first
-        # mask_right = torch.floor(phase) % 2
-        # mask_left = (torch.floor(phase) + 1) % 2
         cos_pos = (1 - torch.cos(2 * torch.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
         self.cos_pos[:, 0] = cos_pos * mask_right
         self.cos_pos[:, 1] = cos_pos * mask_left

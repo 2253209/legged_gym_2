@@ -31,24 +31,23 @@ from legged_gym import LEGGED_GYM_ROOT_DIR
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
-class Zq12Cfg(LeggedRobotCfg):
+class Zq2Cfg(LeggedRobotCfg):
     class env(LeggedRobotCfg.env):
         num_envs = 4096
-        num_observations = 47  # 169
+        num_observations = 45  # 169
         num_actions = 12
         env_spacing = 1.
         queue_len_obs = 3
         queue_len_act = 3
 
     class terrain(LeggedRobotCfg.terrain):
-        # mesh_type = 'plane'
-        mesh_type = 'trimesh'
+        mesh_type = 'plane'
         measure_heights = False
         measured_points_x = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]  # 1mx1m rectangle (without center line)
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.85]  # x,y,z [m] 0.832
+        pos = [0.0, 0.0, 0.85]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'JOINT_Y1': -0.0,
             'JOINT_Y2': 0.0,
@@ -78,8 +77,8 @@ class Zq12Cfg(LeggedRobotCfg):
                    'JOINT_Z1': 5.0, 'JOINT_Z2': 5.0, 'JOINT_Z3': 5.0, 'JOINT_Z4': 5.0, 'JOINT_Z5': 3.0, 'JOINT_Z6': 3.0,
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        # action_scale = 0.04 # 调整为和返回给obs的一样
-        action_scale = 0.15
+        action_scale = 0.04 # 调整为和返回给obs的一样
+        # action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 
@@ -90,8 +89,8 @@ class Zq12Cfg(LeggedRobotCfg):
 
     class viewer(LeggedRobotCfg.viewer):
         ref_env = 0
-        pos = [3, -1., 0.83]  # [m]
-        lookat = [-5., 2., .83]  # [m]
+        pos = [-3, -3, 3]  # [m]
+        lookat = [0., 0, 1.]  # [m]
 
     class normalization(LeggedRobotCfg.normalization):
         class obs_scales(LeggedRobotCfg.normalization.obs_scales):
@@ -104,68 +103,40 @@ class Zq12Cfg(LeggedRobotCfg):
         clip_observations = 100.
         # clip_actions = 5 # 从100修改为5
         clip_actions = 100.
-        # clip_actions = 4.
-
-
-    # class noise:
-    #     add_noise = True
-    #     noise_level = 0.6 # scales other values
-    #     class noise_scales:
-    #         dof_pos = 0.05
-    #         dof_vel = 0.05
-    #         lin_vel = 0.1
-    #         ang_vel = 0.2
-    #         gravity = 0.05
-    #         height_measurements = 0.1
-
-    class noise(LeggedRobotCfg.noise):
-        # 原版噪声太大,参考星动纪元的值调小
-        add_noise = True
-        noise_level = 0.6    # scales other values
-
-        class noise_scales(LeggedRobotCfg.noise.noise_scales):
-            dof_pos = 0.05
-            dof_vel = 0.2
-            ang_vel = 0.1
-            lin_vel = 0.05
-            quat = 0.03
-            height_measurements = 0.1
 
     class commands(LeggedRobotCfg.commands):
         step_joint_offset = 0.30  # rad
         step_freq = 1.5  # HZ （e.g. cycle-time=0.66）
 
         class ranges(LeggedRobotCfg.commands.ranges):
-            #lin_vel_x = [-0.3, 0.5]  # min max [m/s]
-            #lin_vel_y = [-0.0, 0.0]   # min max [m/s]
-            #ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
-            #heading = [-3.14, 3.14]
-            lin_vel_x = [-0.0, 0.0]  # min max [m/s]
-            lin_vel_y = [-0.0, 0.0]  # min max [m/s]
-            ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
-            heading = [-0, 0]
+            lin_vel_x = [-0.3, 0.6]  # min max [m/s]
+            lin_vel_y = [-0.0, 0.0]   # min max [m/s]
+            ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
+            heading = [-3.14, 3.14]
+            # lin_vel_x = [-0.1, 0.1]  # min max [m/s]
+            # lin_vel_y = [-0.0, 0.0]  # min max [m/s]
+            # ang_vel_yaw = [-0.0, 0.0]  # min max [rad/s]
+            # heading = [-0, 0]
 
     class asset(LeggedRobotCfg.asset):
         # file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zq01/mjcf/zq_box_foot.xml'
         file = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/ZQ_Humanoid/urdf/ZQ_Humanoid_long_foot.urdf'
         name = "zq01"
         foot_name = 'foot'
-        #penalize_contacts_on = ['3', '4', 'foot']
         penalize_contacts_on = ['3', '4']
-
         terminate_after_contacts_on = []
         flip_visual_attachments = False
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
-        terminate_body_height = 0.3  #修改
+        terminate_body_height = 0.6  #修改
         disable_gravity = False
         fix_base_link = False
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        randomize_friction = False
+        randomize_friction = True
         friction_range = [0.8, 1.2]
-        randomize_base_mass = False
-        added_mass_range = [-1., 1.]
-        push_robots = False
+        randomize_base_mass = True
+        added_mass_range = [-3., 3.]
+        push_robots = True
         push_interval_s = 5
         max_push_vel_xy = 0.5
         randomize_init_state = True
@@ -226,10 +197,10 @@ class Zq12Cfg(LeggedRobotCfg):
 
 
 
-class Zq12CfgPPO(LeggedRobotCfgPPO):
+class Zq2CfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
-        experiment_name = 'zq12'
+        experiment_name = 'zq2'
         max_iterations = 10000
         # logging
         save_interval = 400
