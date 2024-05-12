@@ -15,7 +15,7 @@ from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
 from deploy.utils.act_gen import ActionGenerator
 from deploy.utils.ankle_joint_converter import convert_pv_joint_2_ori, convert_p_ori_2_joint
-from deploy.utils.logger import SimpleLogger, get_title_tau_mapping
+from deploy.utils.logger import SimpleLogger, get_title_tau_mapping_5dof
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
 
@@ -54,7 +54,7 @@ class DeployCfg:
         step_freq = 1.5  # Hz
 
         num_actions = 12
-        num_obs_net = 47  # 2+3+3+3+12+12+12
+        num_obs_net = 41  # 2+3+3+3+12+12+12
         num_obs_robot = 48  # 12+12+12+12
         action_scale = 0.1
         action_scale_min = action_scale
@@ -62,14 +62,18 @@ class DeployCfg:
         switch_action = 200
         low_pass_rate = 1.0
         # 神经网络默认初始状态
-        default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, 0.0,
-                                    0.0, 0.0, 0.21, -0.53, 0.31, -0.0], dtype=np.float32)
+        default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31,# 0.0,
+                                    0.0, 0.0, 0.21, -0.53, 0.31, #-0.0
+                                    ], dtype=np.float32)
         # 真机默认初始状态
-        default_joint_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.3279, -0.2753,
-                                      0.03, 0.0, 0.21, -0.53, -0.3279, 0.2753], dtype=np.float32)
+        default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, -0.31,
+                                      0.0, 0.0, 0.21, -0.53, -0.31, 0.31
+                                      ], dtype=np.float32)
 
-        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8, -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
-        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.8, 0.5, 0.5, 0.28, 1.15, -0.05, 0.5, 0.8], dtype=np.float32)
+        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.5, -0.8,
+                                    -0.5, -0.28, -1.15, -2.2, -0.8, -0.5], dtype=np.float32)
+        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.8, 0.5,
+                                    0.5, 0.28, 1.15, -0.05, 0.5, 0.8], dtype=np.float32)
 
     class normalization:
         class obs_scales:
@@ -141,9 +145,9 @@ class Deploy:
         self.obs_net[0, 4] = self.cfg.cmd.dyaw * self.cfg.normalization.obs_scales.ang_vel  # 1
         self.obs_net[0, 5:8] = omega[:3] * self.cfg.normalization.obs_scales.ang_vel  # 3
         self.obs_net[0, 8:11] = eu_ang[:3] * self.cfg.normalization.obs_scales.quat  # 3
-        self.obs_net[0, 11:23] = (pos - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
-        self.obs_net[0, 23:35] = vel * self.cfg.normalization.obs_scales.dof_vel  # 10
-        self.obs_net[0, 35:47] = action  # 10
+        self.obs_net[0, 11:21] = (pos - self.cfg.env.default_dof_pos) * self.cfg.normalization.obs_scales.dof_pos  # 10
+        self.obs_net[0, 21:31] = vel * self.cfg.normalization.obs_scales.dof_vel  # 10
+        self.obs_net[0, 31:41] = action  # 10
 
     def combine_obs_real(self, pos, vel, action, a_0, tau_joint_state):
         self.obs_robot[0, 0:12] = pos
@@ -171,7 +175,7 @@ class Deploy:
         action_0 = np.copy(action_robot)
         action_1 = np.copy(action_robot)
         # 从神经网络获取和发送给网络的值
-        action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
+        action_net = np.zeros(10, dtype=np.float32)
         pos_net = np.copy(action_net)
         vel_net = np.copy(action_net)
         phase = np.zeros((1, 1), dtype=np.float32)
@@ -194,7 +198,7 @@ class Deploy:
         count_total = 0
         count_max_merge = 30
 
-        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_tau_mapping())
+        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_tau_mapping_5dof())
 
         try:
             for i in range(10):
@@ -215,21 +219,10 @@ class Deploy:
                 omega, eu_ang, pos_robot, vel_robot, tau_robot = self.get_obs(es)
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
-                try:
-                    # print(q[4], q[5], q[10], q[11] )
-                    p1, p2, p3, p4, v1, v2, v3, v4 = \
-                        convert_pv_joint_2_ori(pos_robot[4], pos_robot[5], pos_robot[10], pos_robot[11],
-                                               vel_robot[4], vel_robot[5], vel_robot[10], vel_robot[11])
-                    pos_net[:] = pos_robot[:]
-                    vel_net[:] = vel_robot[:]
-                    pos_net[[4, 5, 10, 11]] = p1, p2, p3, p4
-                    vel_net[[4, 5, 10, 11]] = v1, v2, v3, v4
-
-                    pos_last[:] = pos_net[:]
-                except Exception as e:
-                    print(pos_robot[4], pos_robot[5], pos_robot[10], pos_robot[11])
-                    print(e)
-                    pos_net[:] = pos_last[:]
+                pos_net[0:5] = pos_robot[0:5]
+                pos_net[5:10] = pos_robot[6:11]
+                vel_net[0:5] = vel_robot[0:5]
+                vel_net[5:10] = vel_robot[6:11]
 
                 # 2.2 步态生成
                 phase[0, 0] = (key_comm.timestep * self.cfg.env.dt * self.cfg.env.step_freq) * 2.
@@ -275,26 +268,23 @@ class Deploy:
                     # 这里可能有问题
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
                     action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
-                    action_0 = action_net.copy()
-
+                    action_0[0:5] = action_net[0:5]
+                    action_0[6:11] = action_net[5:10]
+                    action_0[5] = -action_net[4]
+                    action_0[11] = -action_net[9]
                     # 裁剪
                     action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
-                    action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_joint_pos
 
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
 
                     action_robot = action_1.copy()
-
-                    # print('zyd_action_robot: ', action_robot[[4, 5, 10, 11]])
-
-                    p1, p2, p3, p4 = (
-                        convert_p_ori_2_joint(action_robot[4], action_robot[5], action_robot[10], action_robot[11]))
-
-                    action_robot[[4, 5, 10, 11]] = p1, p2, p3, p4
                     action_robot = np.clip(action_robot,
                                            self.cfg.env.joint_limit_min,
                                            self.cfg.env.joint_limit_max)
+
+                    # 插值
                     if key_comm.timestep < count_max_merge:
                         action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
                                            + action_robot[:] / count_max_merge * (key_comm.timestep))
@@ -332,7 +322,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_5-11_5600_fixbug_6dof_4.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq5dof/5-11/policy_5-11_5dof_nodelay_3.pt'
 
 
     deploy = Deploy(DeployCfg(), args.load_model)

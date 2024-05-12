@@ -76,30 +76,30 @@ def play(args):
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
-    # sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_short())
+    sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_short())
     t1 = time.time()
     t0 = 0
     rst = True
     count_max_merge = 200
 
     for i in range(10*int(env.max_episode_length)):
-        if i < 100:
-            actions = torch.zeros((env.num_envs, env.num_actions))
-            actions[:, :] = env.default_dof_pos[:]
-        elif i < count_max_merge:
-            if rst:
-                env.ref_count[:] = 0.
-                rst = False
-            actions_0 = policy(obs.detach())
-            actions = env.dof_pos / count_max_merge * (count_max_merge - i) + actions_0 / count_max_merge * i
-        else:
-            actions = policy(obs.detach())
+        # if i < 100:
+        #     actions = torch.zeros((env.num_envs, env.num_actions))
+        #     actions[:, :] = env.default_dof_pos[:]
+        # elif i < count_max_merge:
+        #     if rst:
+        #         env.ref_count[:] = 0.
+        #         rst = False
+        #     actions_0 = policy(obs.detach())
+        #     actions = env.dof_pos / count_max_merge * (count_max_merge - i) + actions_0 / count_max_merge * i
+        # else:
+        #     actions = policy(obs.detach())
 
 
-        # actions = policy(obs.detach())
+        actions = policy(obs.detach())
         # 保存play save
         #obs[:, 2:47] = 0.
-        # sloger.save(torch.cat([obs, actions * env_cfg.control.action_scale], dim=1), i, t1 - t0)
+        sloger.save(torch.cat([obs, env.dof_vel2 * 0.05], dim=1), i, t1 - t0)
         # sloger.save(torch.cat([obs, env.dof_vel2], dim=1), i, t1 - t0)
 
         t0 = t1

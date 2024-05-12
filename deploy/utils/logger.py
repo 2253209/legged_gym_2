@@ -236,6 +236,61 @@ def get_title_tau_mapping():
         i += 1
     return title
 
+def get_title_tau_mapping_5dof():
+    i = 0
+    label = 'No,Time,'
+    title = ''
+    title += f'{label}'
+    for k in range(127):
+        if k == 0:
+            label = 'sin'
+            i = 0
+        elif k == 2:
+            label = 'cmd'
+            i = 0
+        elif k == 5:
+            label = 'omg'
+            i = 0
+        elif k == 8:
+            label = 'eul'
+            i = 0
+        elif k == 11:
+            label = 'n_pos'
+            i = 0
+        elif k == 21:
+            label = 'n_vel'
+            i = 0
+        elif k == 31:
+            label = 'n_act'
+            i = 0
+        elif k == 41:
+            label = 'r_pos'
+            i = 0
+        elif k == 53:
+            label = 'r_vel'
+            i = 0
+        elif k == 65:
+            label = 'r_act'
+            i = 0
+        elif k == 77:
+            label = 'uf_act'
+            i = 0
+        elif k == 89:
+            label = 'tau_joint_state'
+            i = 0
+        elif k == 101:
+            label = 'tau_joint_cmd'
+            i = 0
+        elif k == 113:
+            label = 'ankle_joint_pos_cmd'
+            i = 0
+        elif k == 117:
+            label = 'ankle_joint_pos'
+            i = 0
+        title += f'{label}_{i},'
+        i += 1
+    return title
+
 class SimpleLogger:
     def __init__(self, path, title):
         now = datetime.now()

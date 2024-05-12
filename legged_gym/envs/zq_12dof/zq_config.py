@@ -41,8 +41,8 @@ class Zq12Cfg(LeggedRobotCfg):
         queue_len_act = 3
 
     class terrain(LeggedRobotCfg.terrain):
-        # mesh_type = 'plane'
-        mesh_type = 'trimesh'
+        mesh_type = 'plane'
+        # mesh_type = 'trimesh'
         measure_heights = False
         measured_points_x = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]  # 1mx1m rectangle (without center line)
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
@@ -79,7 +79,7 @@ class Zq12Cfg(LeggedRobotCfg):
                    }  # [N*m*s/rad]     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         # action_scale = 0.04 # 调整为和返回给obs的一样
-        action_scale = 0.15
+        action_scale = 0.1
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 2
 

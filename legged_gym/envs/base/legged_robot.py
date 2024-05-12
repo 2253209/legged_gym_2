@@ -94,7 +94,11 @@ class LeggedRobot(BaseTask):
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
-            #self.dof_vel = (self.dof_pos - self.last_dof_pos) / self.dt
+            self.dof_vel = (self.dof_pos - self.last_dof_pos) / self.dt
+
+            # self.dof_vel = (self.dof_pos - self.last_dof_pos) / self.cfg.sim.dt
+            # self.last_dof_vel[:] = self.dof_vel[:]
+            # self.last_dof_pos[:] = self.dof_pos[:]
 
         self.post_physics_step()
 
@@ -135,6 +139,7 @@ class LeggedRobot(BaseTask):
         self.last_actions[:] = self.actions[:]
         self.last_dof_pos[:] = self.dof_pos[:]
         self.last_dof_vel[:] = self.dof_vel[:]
+        self.last_dof_vel2[:] = self.dof_vel2[:]
         self.last_root_vel[:] = self.root_states[:, 7:13]
 
         if self.viewer and self.enable_viewer_sync and self.debug_viz:
@@ -176,6 +181,7 @@ class LeggedRobot(BaseTask):
         self.last_actions[env_ids] = 0.
         self.last_last_actions[env_ids] = 0.
         self.last_dof_vel[env_ids] = 0.
+        self.last_dof_vel2[env_ids] = 0.
         self.feet_air_time[env_ids] = 0.
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
@@ -368,6 +374,8 @@ class LeggedRobot(BaseTask):
             [torch.Tensor]: Torques sent to the simulation
         """
         #pd controller
+        # self.dof_vel[4:6] = self.dof_vel2[4:6]
+        # self.dof_vel[10:12] = self.dof_vel2[10:12]
         actions_scaled = actions * self.cfg.control.action_scale
         control_type = self.cfg.control.control_type
         if control_type=="P":
@@ -392,6 +400,7 @@ class LeggedRobot(BaseTask):
         """
         self.dof_pos[env_ids] = self.default_dof_pos * torch_rand_float(0.5, 1.5, (len(env_ids), self.num_dof), device=self.device)
         self.dof_vel[env_ids] = 0.
+        self.dof_vel2[env_ids] = 0.
 
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_dof_state_tensor_indexed(self.sim,
@@ -503,8 +512,8 @@ class LeggedRobot(BaseTask):
         self.root_states = gymtorch.wrap_tensor(actor_root_state)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
         self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]
-        self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
-        # self.dof_vel = torch.zeros_like(self.dof_pos)
+        self.dof_vel2 = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
+        self.dof_vel = torch.zeros_like(self.dof_pos)
 
         self.base_quat = self.root_states[:, 3:7]
         if self.cfg.env.num_actions == 12:
@@ -528,6 +537,7 @@ class LeggedRobot(BaseTask):
         self.last_last_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.last_dof_pos = torch.zeros_like(self.dof_pos)
         self.last_dof_vel = torch.zeros_like(self.dof_vel)
+        self.last_dof_vel2 = torch.zeros_like(self.dof_vel2)
         self.last_root_vel = torch.zeros_like(self.root_states[:, 7:13])
         self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
         self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel], device=self.device, requires_grad=False,) # TODO change this
