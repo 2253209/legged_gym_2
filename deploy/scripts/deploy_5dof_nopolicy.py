@@ -97,8 +97,8 @@ class DeployCfg:
         kps = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
         kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
 
-        kps_stand = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
-        kds_stand = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
+        kps_stand = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
+        kds_stand = np.array([10, 10, 10, 10, 4, 4, 10, 10, 10, 10, 4, 4], dtype=np.double)
 
         # tau_limit = 200. * np.ones(10, dtype=np.double)
 
@@ -319,7 +319,7 @@ class Deploy:
                     # action_0[10] = -action_net[9]
                     # 裁剪
                     action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
-                    action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_joint_pos
+                    # action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_joint_pos
 
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
@@ -335,8 +335,9 @@ class Deploy:
                                            + action_robot[:] / count_max_merge * (key_comm.timestep))
 
                     tau_cmd = self.pd_control(action_robot, pos_robot, kp, np.zeros(12), vel_robot, kd)
-                    print("Joint torque command is: ", tau_cmd)
-                    print(action_robot)
+                    # print("Joint torque command is: ", tau_cmd)
+                    # print('4=%.4f ' % action_robot[4], '5=%.4f ' % action_robot[5], '10=%.4f ' % action_robot[10], '11=%.4f ' % action_robot[11])
+                    # print("action: ", action_robot)
                     self.publish_action(action_robot, kp, kd)
                     if key_comm.timestep > self.cfg.env.switch_action and self.cfg.env.action_scale < self.cfg.env.action_scale_max:
                         self.cfg.env.action_scale += 0.00001*5
