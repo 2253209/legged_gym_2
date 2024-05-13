@@ -107,7 +107,7 @@ class Deploy:
     def __init__(self, cfg: DeployCfg, path):
         self.lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
         self.cfg = cfg
-        self.policy = torch.jit.load(path)
+        # self.policy = torch.jit.load(path)
         self.obs_net = np.zeros((1, cfg.env.num_obs_net), dtype=np.float32)
         self.obs_robot = np.zeros((1, cfg.env.num_obs_robot + 12), dtype=np.float32)
 
@@ -201,8 +201,8 @@ class Deploy:
         sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_tau_mapping_5dof())
 
         try:
-            for i in range(10):
-                self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+            # for i in range(10):
+            #     self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
 
             while key_comm.listening:
                 c_delay = time.time() - current_time
@@ -217,6 +217,23 @@ class Deploy:
 
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
                 omega, eu_ang, pos_robot, vel_robot, tau_robot = self.get_obs(es)
+                #pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
+
+                # 调试,上机时关掉
+                # pos_robot[:] = self.cfg.env.default_joint_pos[:]
+                # eu_ang[:] = 0.
+                # omega[:] = 0.
+
+                # 1.2 当操纵者改变模式时,获取当前关节位置做1秒插值
+                if key_comm.timestep == 0:
+                    pos_0 = pos_robot.copy()
+                    print('Time step = 0, POS COPIED!', pos_0)
+                    key_comm.timestep += 1
+                else:
+                    key_comm.timestep += 1
+
+                # print('All time, POS COPIED!', pos_robot)
+
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 pos_net[0:5] = pos_robot[0:5]
@@ -267,11 +284,27 @@ class Deploy:
                     # 5.1 将神经网络输出的踝部关节角度,转换成实际电机指令
                     # 这里可能有问题
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
-                    action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                    # action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
+                    scale_1 = 0.3
+                    scale_2 = 2 * scale_1
+
+                    action_net[:] = self.cfg.env.default_dof_pos[:]
+                    # right foot stance phase set to default joint pos
+                    # sin_pos_r[sin_pos_r < 0] = 0
+                    action_net[2] += cos_pos[0, 0] * scale_1
+                    action_net[3] += -cos_pos[0, 0] * scale_2
+                    action_net[4] += cos_pos[0, 0] * scale_1
+                    # left foot stance phase set to default joint pos
+                    # sin_pos_l[sin_pos_l > 0] = 0
+                    action_net[7] += cos_pos[0, 1] * scale_1
+                    action_net[8] += -cos_pos[0, 1] * scale_2
+                    action_net[9] += cos_pos[0, 1] * scale_1
+
                     action_0[0:5] = action_net[0:5]
-                    action_0[6:11] = action_net[5:10]
                     action_0[5] = -action_net[4]
-                    action_0[11] = -action_net[9]
+                    action_0[6:11] = action_net[5:10]
+                    action_0[11] = action_net[9]
+                    action_0[10] = -action_net[9]
                     # 裁剪
                     action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
                     action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_joint_pos
@@ -289,6 +322,8 @@ class Deploy:
                         action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
                                            + action_robot[:] / count_max_merge * (key_comm.timestep))
 
+                    # tau = self.pd_control(action_robot, pos_robot, kp, np.zeros(12), vel_robot, kd)
+                    print(action_robot)
                     self.publish_action(action_robot, kp, kd)
                     if key_comm.timestep > self.cfg.env.switch_action and self.cfg.env.action_scale < self.cfg.env.action_scale_max:
                         self.cfg.env.action_scale += 0.00001*5
