@@ -46,6 +46,8 @@ from .zq_12dof.zq import Zq12Robot
 from .zq_12dof.zq_config import Zq12Cfg, Zq12CfgPPO
 from .HL.hl import HLRobot
 from .HL.hl_config import HLCfg, HLCfgPPO
+from .zq_10dof.zq import Zq10Robot
+from .zq_10dof.zq_config import Zq10Cfg, Zq10CfgPPO
 import os
 
 from legged_gym.utils.task_registry import task_registry
@@ -58,3 +60,5 @@ task_registry.register("cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO())
 task_registry.register("zq", ZqRobot, ZqCfg(), ZqCfgPPO())
 task_registry.register("zq12", Zq12Robot, Zq12Cfg(), Zq12CfgPPO())
 task_registry.register("hl", HLRobot, HLCfg(), HLCfgPPO())
+task_registry.register("zq10", Zq10Robot, Zq10Cfg(), Zq10CfgPPO())
+

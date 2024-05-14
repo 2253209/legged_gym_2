@@ -38,7 +38,7 @@ from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Log
 
 import numpy as np
 import torch
-from deploy.utils.logger import SimpleLogger, get_title_short
+from deploy.utils.logger import SimpleLogger, get_title_short, get_title_5dof_play, get_title_6dof_play
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -76,7 +76,8 @@ def play(args):
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
-    sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_short())
+    sloger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/play_log', get_title_5dof_play())
+
     t1 = time.time()
     t0 = 0
     rst = True
@@ -99,9 +100,8 @@ def play(args):
         actions = policy(obs.detach())
         # 保存play save
         #obs[:, 2:47] = 0.
-        sloger.save(torch.cat([obs, env.dof_vel2 * 0.05], dim=1), i, t1 - t0)
-        # sloger.save(torch.cat([obs, env.dof_vel2], dim=1), i, t1 - t0)
-
+        sloger.save(torch.cat([obs, actions * env_cfg.control.action_scale,
+                               env.dof_vel2 * env_cfg.normalization.obs_scales.dof_vel, env.torques], dim=1), i, t1 - t0)
         t0 = t1
         t1 = time.time()
 
