@@ -216,6 +216,7 @@ class Deploy:
 
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
                 omega, eu_ang, pos_robot, vel_robot, tau_robot = self.get_obs(es)
+                # print('r=%.4f p=%.4f y=%.4f' % (eu_ang[0], eu_ang[1], eu_ang[2], ))
                 #pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
 
                 # 调试,上机时关掉
@@ -306,9 +307,9 @@ class Deploy:
                                            self.cfg.env.joint_limit_max)
 
                     # 插值
-                    if key_comm.timestep < count_max_merge:
-                        action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
-                                           + action_robot[:] / count_max_merge * key_comm.timestep)
+                    # if key_comm.timestep < count_max_merge:
+                    #     action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                    #                        + action_robot[:] / count_max_merge * key_comm.timestep)
 
                     tau_cmd = self.pd_control(action_robot, pos_robot, kp, np.zeros(12), vel_robot, kd)
                     # print("Joint torque command is: ", tau_cmd)
