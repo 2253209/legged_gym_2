@@ -65,8 +65,8 @@ class DeployCfg:
         default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31,
                                     0.03, 0.0, 0.21, -0.53, 0.31], dtype=np.float32)
         # 真机默认初始状态
-        default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, -0.31,
-                                      0.0, 0.0, 0.21, -0.53, -0.31, 0.31
+        default_joint_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31, -0.31,
+                                      0.03, 0.0, 0.21, -0.53, -0.31, 0.31
                                       ], dtype=np.float32)
 
         joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.7, -0.9,
@@ -93,10 +93,10 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
+        kps = np.array([160, 160, 160, 160, 18, 18, 160, 160, 160, 160, 18, 18], dtype=np.double)
         kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
 
-        kps_stand = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
+        kps_stand = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
         kds_stand = np.array([10, 10, 10, 10, 4, 4, 10, 10, 10, 10, 4, 4], dtype=np.double)
 
         # tau_limit = 200. * np.ones(10, dtype=np.double)
@@ -195,6 +195,7 @@ class Deploy:
         key_comm.start()
         count_total = 0
         count_max_merge = 30
+        step_freq = self.cfg.env.step_freq
 
         sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_5dof_deploy())
 
@@ -239,7 +240,7 @@ class Deploy:
                 vel_net[9] = vel_robot[11]
 
                 # 2.2 步态生成
-                phase[0, 0] = (key_comm.timestep * self.cfg.env.dt * self.cfg.env.step_freq) * 2.
+                phase[0, 0] = (key_comm.timestep * self.cfg.env.dt * step_freq) * 2.
                 # phase[0, 0] += 0.1
                 mask_right = (np.floor(phase) + 1) % 2
                 mask_left = np.floor(phase) % 2
@@ -282,6 +283,9 @@ class Deploy:
                     # 5.1 将神经网络输出的踝部关节角度,转换成实际电机指令
                     # 这里可能有问题
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
+                    # if key_comm.timestep > 500:
+                    #     step_freq = key_comm.timestep // 500 + self.cfg.env.step_freq
+
                     scale_1 = 0.3
                     scale_2 = 2 * scale_1
                     action_net[:] = self.cfg.env.default_dof_pos[:]

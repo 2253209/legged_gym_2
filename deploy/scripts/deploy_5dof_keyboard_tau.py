@@ -65,8 +65,8 @@ class DeployCfg:
         default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31,
                                     0.03, 0.0, 0.21, -0.53, 0.31], dtype=np.float32)
         # 真机默认初始状态
-        default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, -0.31,
-                                      0.0, 0.0, 0.21, -0.53, -0.31, 0.31
+        default_joint_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31, -0.31,
+                                      0.03, 0.0, 0.21, -0.53, -0.31, 0.31
                                       ], dtype=np.float32)
 
         joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.7, -0.9,
@@ -93,7 +93,7 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
+        kps = np.array([160, 160, 160, 160, 18, 18, 160, 160, 160, 160, 18, 18], dtype=np.double)
         kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
 
         kps_stand = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)

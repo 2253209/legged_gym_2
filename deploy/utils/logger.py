@@ -471,7 +471,7 @@ class SimpleLogger:
     def __init__(self, path, title):
         now = datetime.now()
         # 将当前时间格式化为字符串
-        formatted_time = now.strftime('%Y-%m-%d_%H:%M:%S')
+        formatted_time = now.strftime('%Y-%m-%d_%H-%M-%S')
         filename = f"{path}/log_{formatted_time}.csv"
         if not os.path.exists(path):
             os.mkdir(path)
