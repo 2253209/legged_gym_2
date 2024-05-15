@@ -62,8 +62,8 @@ class DeployCfg:
         switch_action = 200
         low_pass_rate = 1.0
         # 神经网络默认初始状态
-        default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31,
-                                    0.0, 0.0, 0.21, -0.53, 0.31], dtype=np.float32)
+        default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31,
+                                    0.03, 0.0, 0.21, -0.53, 0.31], dtype=np.float32)
         # 真机默认初始状态
         default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, -0.31,
                                       0.0, 0.0, 0.21, -0.53, -0.31, 0.31

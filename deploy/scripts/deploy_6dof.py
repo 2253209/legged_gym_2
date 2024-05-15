@@ -50,8 +50,8 @@ class DeployCfg:
     class env:
         # dt = 0.01
         dt = 0.01
-        # step_freq = 1.  # Hz
-        step_freq = 1.5  # Hz
+        step_freq = 0.2  # Hz
+        # step_freq = 1.5  # Hz
 
         num_actions = 12
         num_obs_net = 47  # 2+3+3+3+12+12+12
@@ -82,10 +82,10 @@ class DeployCfg:
             quat = 1.
             height_measurements = 5.0
 
-        clip_observations = 100.
+        clip_observations = 50.
         # clip_actions = 100.
         # clip_observations = 50.
-        clip_actions = 4.
+        clip_actions = 100.
     class cmd:
         vx = 0.0  # 0.5
         vy = 0.0  # 0.
@@ -244,7 +244,9 @@ class Deploy:
                 cos_pos[0, 1] = cos_values * mask_left
 
                 # 3.1 组合给神经网络的OBS, 其中action_net是上一帧神经网络生成的动作.其他值都经过缩放,P值还减去了默认姿势
-                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
+                # self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
+                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net * self.cfg.env.action_scale)
+
 
                 # 3.2 组合从真机得到的OBS, 其中action_real是上一帧的关节目标位置,p和v都是原始的.
                 self.combine_obs_real(pos_robot, vel_robot, action_robot, tau_robot, tau_cmd)
@@ -338,7 +340,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_5-11_5600_fixbug_6dof_4.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_5-15_6dof_squat_1.pt'
+        # args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/05-11/100000.pt'
+
 
 
     deploy = Deploy(DeployCfg(), args.load_model)

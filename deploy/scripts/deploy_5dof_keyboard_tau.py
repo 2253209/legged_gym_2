@@ -15,7 +15,7 @@ from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
 from deploy.utils.act_gen import ActionGenerator
 from deploy.utils.ankle_joint_converter import convert_pv_joint_2_ori, convert_p_ori_2_joint
-from deploy.utils.logger import SimpleLogger, get_title_nopolicy_5dof
+from deploy.utils.logger import SimpleLogger, get_title_5dof_deploy
 from deploy.utils.key_command import KeyCommand
 from legged_gym import LEGGED_GYM_ROOT_DIR
 
@@ -51,7 +51,7 @@ class DeployCfg:
         # dt = 0.01
         dt = 0.01
         # step_freq = 1.  # Hz
-        step_freq = 1.5  # Hz
+        step_freq = 0.2  # Hz
 
         num_actions = 12
         num_obs_net = 41  # 2+3+3+3+12+12+12
@@ -62,18 +62,17 @@ class DeployCfg:
         switch_action = 200
         low_pass_rate = 1.0
         # 神经网络默认初始状态
-        default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31,# 0.0,
-                                    0.0, 0.0, 0.21, -0.53, 0.31 #-0.0
-                                    ], dtype=np.float32)
+        default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31,
+                                    0.03, 0.0, 0.21, -0.53, 0.31], dtype=np.float32)
         # 真机默认初始状态
         default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, -0.31,
                                       0.0, 0.0, 0.21, -0.53, -0.31, 0.31
                                       ], dtype=np.float32)
 
-        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.7, -0.7,
-                                    -0.5, -0.28, -1.15, -2.2, -0.7, -0.7], dtype=np.float32)
-        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.9, 0.9,
-                                    0.5, 0.28, 1.15, -0.05, 0.9, 0.9], dtype=np.float32)
+        joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.7, -0.9,
+                                    -0.5, -0.28, -1.15, -2.2, -0.9, -0.7], dtype=np.float32)
+        joint_limit_max = np.array([0.5, 0.25, 1.15, -0.05, 0.9, 0.7,
+                                    0.5, 0.28, 1.15, -0.05, 0.7, 0.9], dtype=np.float32)
 
     class normalization:
         class obs_scales:
@@ -148,19 +147,12 @@ class Deploy:
         self.obs_net[0, 21:31] = vel * self.cfg.normalization.obs_scales.dof_vel  # 10
         self.obs_net[0, 31:41] = action  # 10
 
-    # def combine_obs_real(self, pos, vel, action, a_0, tau_joint_state):
-    #     self.obs_robot[0, 0:12] = pos
-    #     self.obs_robot[0, 12:24] = vel
-    #     self.obs_robot[0, 24:36] = action
-    #     self.obs_robot[0, 36:48] = a_0
-    #     self.obs_robot[0, 48:60] = tau_joint_state
     def combine_obs_real(self, pos, vel, action, tau_joint_state, tau_joint_cmd):
         self.obs_robot[0, 0:12] = pos
         self.obs_robot[0, 12:24] = vel
         self.obs_robot[0, 24:36] = action
         self.obs_robot[0, 36:48] = tau_joint_state
         self.obs_robot[0, 48:60] = tau_joint_cmd
-
 
     def pd_control(self, target_q, q, kp, target_dq, dq, kd):
         """
@@ -205,7 +197,7 @@ class Deploy:
         count_total = 0
         count_max_merge = 30
 
-        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_nopolicy_5dof())
+        sp_logger = SimpleLogger(f'{LEGGED_GYM_ROOT_DIR}/logs/dep_log', get_title_5dof_deploy())
 
         try:
             for i in range(10):
@@ -224,6 +216,23 @@ class Deploy:
 
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
                 omega, eu_ang, pos_robot, vel_robot, tau_robot = self.get_obs(es)
+                #pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
+
+                # 调试,上机时关掉
+                # pos_robot[:] = self.cfg.env.default_joint_pos[:]
+                # eu_ang[:] = 0.
+                # omega[:] = 0.
+
+                # 1.2 当操纵者改变模式时,获取当前关节位置做1秒插值
+                # if key_comm.timestep == 0:
+                #     pos_0 = pos_robot.copy()
+                #     print('Time step = 0, POS COPIED!', pos_0)
+                #     key_comm.timestep += 1
+                # else:
+                #     key_comm.timestep += 1
+
+                # print('All time, POS COPIED!', pos_robot)
+
 
                 # 2.1 POS和VEL转换: 从真实脚部电机位置 转换成神经网络可以接受的ori位置
                 pos_net[0:5] = pos_robot[0:5]
@@ -238,13 +247,14 @@ class Deploy:
                 # phase[0, 0] += 0.1
                 mask_right = (np.floor(phase) + 1) % 2
                 mask_left = np.floor(phase) % 2
-                cos_values = (1 - np.cos(2 * np.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
-                cos_pos[0, 0] = cos_values * mask_right
-                cos_pos[0, 1] = cos_values * mask_left
+                # cos_values = (1 - np.cos(2 * np.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
+                cos_values = np.sin(2 * np.pi * phase) / 2
+                cos_pos[0, 0] = cos_values# * mask_right
+                cos_pos[0, 1] = cos_values# * mask_left
 
                 # 3.1 组合给神经网络的OBS, 其中action_net是上一帧神经网络生成的动作.其他值都经过缩放,P值还减去了默认姿势
-                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
-                # self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net * self.cfg.env.action_scale)
+                # self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
+                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net * self.cfg.env.action_scale)
 
 
                 # 3.2 组合从真机得到的OBS, 其中action_real是上一帧的关节目标位置,p和v都是原始的.
@@ -259,14 +269,14 @@ class Deploy:
                     key_comm.keyboardEvent = False
 
                 if key_comm.stepCalibrate:
-                    # self.cfg.env.action_scale = self.cfg.env.action_scale_min
+                    self.cfg.env.action_scale = self.cfg.env.action_scale_min
                     action_robot = np.array(self.cfg.env.default_joint_pos)
 
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
                     if key_comm.timestep < count_max_merge:
                         action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
-                                           + action_robot[:] / count_max_merge * (key_comm.timestep))
+                                           + action_robot[:] / count_max_merge * key_comm.timestep)
 
                     self.publish_action(action_robot, kp, kd)
                     # pass
@@ -282,9 +292,7 @@ class Deploy:
                     action_0[6:10] = action_net[5:9]
                     action_0[11] = action_net[9]
                     action_0[10] = -action_net[9]
-                    # action_0[6:11] = action_net[5:10]
-                    # action_0[11] = action_net[9]
-                    # action_0[10] = -action_net[9]
+
                     # 裁剪
                     action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
                     action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_joint_pos
@@ -300,12 +308,11 @@ class Deploy:
                     # 插值
                     if key_comm.timestep < count_max_merge:
                         action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
-                                           + action_robot[:] / count_max_merge * (key_comm.timestep))
+                                           + action_robot[:] / count_max_merge * key_comm.timestep)
 
                     tau_cmd = self.pd_control(action_robot, pos_robot, kp, np.zeros(12), vel_robot, kd)
                     # print("Joint torque command is: ", tau_cmd)
-                    # print('4=%.4f ' % action_robot[4], '5=%.4f ' % action_robot[5], '10=%.4f ' % action_robot[10], '11=%.4f ' % action_robot[11])
-                    print("action: ", action_robot)
+                    # print(action_robot)
                     self.publish_action(action_robot, kp, kd)
                     if key_comm.timestep > self.cfg.env.switch_action and self.cfg.env.action_scale < self.cfg.env.action_scale_max:
                         self.cfg.env.action_scale += 0.00001*5
@@ -339,7 +346,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq5dof/5-11/policy_5-11_5dof_nodelay_3.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq5dof/5-15/policy_5-15_5dof_squat_1200.pt'
 
 
     deploy = Deploy(DeployCfg(), args.load_model)

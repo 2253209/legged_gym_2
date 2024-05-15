@@ -80,10 +80,10 @@ class DeployCfg:
             quat = 1.
             height_measurements = 5.0
 
-        clip_observations = 100.
+        clip_observations = 50.
         # clip_actions = 100.
         # clip_observations = 50.
-        clip_actions = 4.
+        clip_actions = 100.
     class cmd:
         vx = 0.0  # 0.5
         vy = 0.0  # 0.
@@ -332,8 +332,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_5-11_5600_fixbug_6dof_4.pt'
-
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/05-11/100000.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()

@@ -51,22 +51,23 @@ class DeployCfg:
         # dt = 0.01
         dt = 0.01
         # step_freq = 1.  # Hz
-        step_freq = 1.5  # Hz
+        step_freq = 0.2  # Hz
 
         num_actions = 12
         num_obs_net = 41  # 2+3+3+3+12+12+12
         num_obs_robot = 60  # 12+12+12+12
-        action_scale = 0.04
+        action_scale = 0.1
         action_scale_min = action_scale
         action_scale_max = 0.04
         switch_action = 200
         low_pass_rate = 1.0
         # 神经网络默认初始状态
-        default_dof_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31,
-                                    0.0, 0.0, 0.21, -0.53, 0.31], dtype=np.float32)
+        default_dof_pos = np.array([-0.03, 0.0, 0.21, -0.53, 0.31,
+                                    0.03, 0.0, 0.21, -0.53, 0.31], dtype=np.float32)
         # 真机默认初始状态
         default_joint_pos = np.array([-0.0, 0.0, 0.21, -0.53, 0.31, -0.31,
-                                      0.0, 0.0, 0.21, -0.53, -0.31, 0.31], dtype=np.float32)
+                                      0.0, 0.0, 0.21, -0.53, -0.31, 0.31
+                                      ], dtype=np.float32)
 
         joint_limit_min = np.array([-0.5, -0.25, -1.15, -2.2, -0.7, -0.9,
                                     -0.5, -0.28, -1.15, -2.2, -0.9, -0.7], dtype=np.float32)
@@ -242,12 +243,15 @@ class Deploy:
                 # phase[0, 0] += 0.1
                 mask_right = (np.floor(phase) + 1) % 2
                 mask_left = np.floor(phase) % 2
-                cos_values = (1 - np.cos(2 * np.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
-                cos_pos[0, 0] = cos_values * mask_right
-                cos_pos[0, 1] = cos_values * mask_left
+                # cos_values = (1 - np.cos(2 * np.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
+                cos_values = np.sin(2 * np.pi * phase) / 2
+                cos_pos[0, 0] = cos_values# * mask_right
+                cos_pos[0, 1] = cos_values# * mask_left
 
                 # 3.1 组合给神经网络的OBS, 其中action_net是上一帧神经网络生成的动作.其他值都经过缩放,P值还减去了默认姿势
-                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
+                # self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
+                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net * self.cfg.env.action_scale)
+
 
                 # 3.2 组合从真机得到的OBS, 其中action_real是上一帧的关节目标位置,p和v都是原始的.
                 self.combine_obs_real(pos_robot, vel_robot, action_robot, tau_robot, tau_cmd)
@@ -348,9 +352,6 @@ if __name__ == '__main__':
                         help='Run to load from.')
     parser.add_argument('--terrain', action='store_true', help='terrain or plane')
     args = parser.parse_args()
-
-    if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq10/exported/policies/policy_1.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()
