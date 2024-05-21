@@ -13,6 +13,9 @@ import lcm
 
 from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
+from deploy.lcm_types.key_command_lcmt import key_command_lcmt
+from deploy.lcm_types.tau_mapping_lcmt import tau_mapping_lcmt
+
 from deploy.utils.act_gen import ActionGenerator
 from deploy.utils.ankle_joint_converter import convert_pv_joint_2_ori, convert_p_ori_2_joint
 from deploy.utils.logger import SimpleLogger, get_title_5dof_deploy
@@ -124,6 +127,16 @@ class Deploy:
         # 由lcm将神经网络输出的action传入c++ sdk
         self.lc.publish("robot_command", command_for_robot.encode())
 
+    def publish_key_command(self, action, kp, kd):
+        key_command = key_command_lcmt()
+        key_command.use_tau_mapping_rl = action
+        key_command.use_tau_mapping_rl = np.zeros(self.cfg.env.num_actions)
+        key_command.timestamp_us = int(time.time() * 10 ** 6)
+        key_command.id = 0
+
+        # 由lcm将神经网络输出的action传入c++ sdk
+        self.lc.publish("key_command", key_command.encode())
+
     def get_obs(self, es):
         """
         Extracts an observation from the mujoco data structure
@@ -134,8 +147,9 @@ class Deploy:
         q = es.joint_pos.astype(np.float32)
         dq = es.joint_vel.astype(np.float32)
         tau = es.joint_tau.astype(np.float32)
+        tau_ankle = es.tau_ankle.astype(np.float32)
 
-        return omega, eu_ang, q, dq, tau
+        return omega, eu_ang, q, dq, tau, tau_ankle
 
     def combine_obs_net(self, phase, omega, eu_ang, pos, vel, action):
         self.obs_net[0, :2] = phase[0, :]
@@ -214,7 +228,7 @@ class Deploy:
                 current_time = time.time()
 
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
-                omega, eu_ang, pos_robot, vel_robot, tau_robot = self.get_obs(es)
+                omega, eu_ang, pos_robot, vel_robot, tau_robot, tau_ankle = self.get_obs(es)
                 #pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
 
                 # 调试,上机时关掉

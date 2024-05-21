@@ -5,7 +5,7 @@ import time
 import numpy as np
 from deploy.lcm_types.state_estimator_lcmt import state_estimator_lcmt
 from deploy.lcm_types.leg_control_data_lcmt import leg_control_data_lcmt
-
+from deploy.lcm_types.tau_mapping_lcmt import tau_mapping_lcmt
 
 @ staticmethod
 def filter_mean(buffer, value):
@@ -23,15 +23,19 @@ class StateEstimator:
         self.joint_pos = np.zeros(12, dtype=np.float32)
         self.joint_vel = np.zeros(12, dtype=np.float32)
         self.joint_tau = np.zeros(12, dtype=np.float32)
+        self.tau_ankle = np.zeros(4, dtype=np.float32)
         self.quat = np.zeros(4, dtype=np.float32)
         self.omegaBody = np.zeros(3, dtype=np.float32)
 
         self.buffer_vel = np.zeros((5, 12), dtype=np.float32)
         self.buffer_pos = np.zeros((5, 12), dtype=np.float32)
+        self.buffer_tau = np.zeros((5, 12), dtype=np.float32)
         self.buffer_omg = np.zeros((5, 3), dtype=np.float32)
+        self.buffer_tau_ankle = np.zeros((5, 4), dtype=np.float32)
 
         self.state_subscription = self.lc.subscribe("state_estimator", self._state_cb)
         self.leg_subscription = self.lc.subscribe("leg_control_data_RL", self._leg_cb)
+        self.tau_subscription = self.lc.subscribe("tau_mapping", self._tau_cb)
         self.running = True
 
     def _state_cb(self, channel, data):
@@ -42,15 +46,25 @@ class StateEstimator:
         self.omegaBody = np.array(msg.omegaBody)
         # print(f"update imudata {msg.id}")
 
+    def _tau_cb(self, channel, data):
+        # print("update state")
+        msg = tau_mapping_lcmt.decode(data)
+        self.tau_ankle = np.array(msg.tau_est)
+        # self.tau_mapping = filter_mean(self.buffer_tau, np.array(msg.tau_mapping))
+        # print(f"update tau_data {msg.id}")
+
     def _leg_cb(self, channel, data):
         # print("update leg")
         msg = leg_control_data_lcmt.decode(data)
         # self.joint_pos = filter_mean(self.buffer_pos, np.array(msg.q))
         # self.joint_vel = filter_mean(self.buffer_vel, np.array(msg.qd))
+        # self.joint_tau = filter_mean(self.buffer_tau, np.array(msg.tau_est))
         self.joint_pos = np.array(msg.q)
         self.joint_vel = np.array(msg.qd)
         self.joint_tau = np.array(msg.tau_est)
         # print(f"update legdata {msg.id}")
+
+
 
     def poll(self, cb=None):
         t = time.time()
