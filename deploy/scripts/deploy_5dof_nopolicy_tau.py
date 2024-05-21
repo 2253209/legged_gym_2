@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: BSD-3-Clause
+# 5自由度悬空踏步测试部署文件，站立模式位置映射，网络模式力矩映射
 #
 # qin_jian zq tech
 
@@ -96,8 +96,8 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([160, 160, 160, 160, 18, 18, 160, 160, 160, 160, 18, 18], dtype=np.double)
-        kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
+        kps = np.array([160, 160, 160, 160, 5, 0, 160, 160, 160, 160, 5, 0], dtype=np.double)
+        kds = np.array([10, 10, 10, 10, 1, 0, 10, 10, 10, 10, 1, 0], dtype=np.double)
 
         kps_stand = np.array([200, 200, 200, 200, 100, 0, 200, 200, 200, 200, 100, 0], dtype=np.double)
         kds_stand = np.array([10, 10, 10, 10, 0, 0, 10, 10, 10, 10, 0, 0], dtype=np.double)
@@ -135,9 +135,9 @@ class Deploy:
         q = es.joint_pos.astype(np.float32)
         dq = es.joint_vel.astype(np.float32)
         tau = es.joint_tau.astype(np.float32)
-        tau_ankle = es.tau_ankle.astype(np.float32)
+        tau_ankle_cmd = es.tau_ankle.astype(np.float32)
 
-        return omega, eu_ang, q, dq, tau, tau_ankle
+        return omega, eu_ang, q, dq, tau, tau_ankle_cmd
 
     def combine_obs_net(self, phase, omega, eu_ang, pos, vel, action):
         self.obs_net[0, :2] = phase[0, :]
@@ -217,7 +217,8 @@ class Deploy:
                 current_time = time.time()
 
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
-                omega, eu_ang, pos_robot, vel_robot, tau_robot, tau_ankle = self.get_obs(es)
+                omega, eu_ang, pos_robot, vel_robot, tau_robot, tau_ankle_cmd = self.get_obs(es)
+                # print('tau_ankle', tau_ankle)
                 #pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
 
                 # 调试,上机时关掉
@@ -303,15 +304,15 @@ class Deploy:
                     action_net[4] += cos_pos[0, 0] * scale_1
                     # left foot stance phase set to default joint pos
                     # sin_pos_l[sin_pos_l > 0] = 0
-                    action_net[7] += cos_pos[0, 1] * scale_1
-                    action_net[8] += -cos_pos[0, 1] * scale_2
-                    action_net[9] += cos_pos[0, 1] * scale_1
+                    action_net[8] += cos_pos[0, 1] * scale_1
+                    action_net[9] += -cos_pos[0, 1] * scale_2
+                    action_net[10] += cos_pos[0, 1] * scale_1
 
                     action_0[0:5] = action_net[0:5]
-                    action_0[5] = -action_net[4]
-                    action_0[6:10] = action_net[5:9]
-                    action_0[11] = action_net[9]
-                    action_0[10] = -action_net[9]
+                    action_0[5] = 0# -action_net[4]
+                    action_0[6:11] = action_net[6:11]
+                    action_0[11] = 0 #action_net[9]
+                    # action_0[10] = -action_net[9]
 
                     # 裁剪
                     action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
@@ -331,7 +332,7 @@ class Deploy:
 
                     tau_cmd = self.pd_control(action_robot, pos_robot, kp, np.zeros(12), vel_robot, kd)
                     # print("Joint torque command is: ", tau_cmd)
-                    # print(action_robot)
+                    print(action_robot)
                     self.publish_action(action_robot, kp, kd, control_mode)
                     if key_comm.timestep > self.cfg.env.switch_action and self.cfg.env.action_scale < self.cfg.env.action_scale_max:
                         self.cfg.env.action_scale += 0.00001*5

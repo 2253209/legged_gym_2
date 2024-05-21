@@ -296,7 +296,7 @@ def get_title_5dof_deploy():
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(101):
+    for k in range(105):
         if k == 0:
             label = 'sin'
             i = 0
@@ -332,6 +332,9 @@ def get_title_5dof_deploy():
             i = 0
         elif k == 89:
             label = 'tau_joint_cmd'
+            i = 0
+        elif k == 101:
+            label = 'tau_motor_cmd'
             i = 0
         title += f'{label}_{i},'
         i += 1
