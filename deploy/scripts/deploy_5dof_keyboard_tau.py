@@ -93,7 +93,7 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([160, 160, 160, 160, 18, 18, 160, 160, 160, 160, 18, 18], dtype=np.double)
+        kps = np.array([160, 160, 160, 160, 36, 36, 160, 160, 160, 160, 36, 36], dtype=np.double)
         kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
 
         kps_stand = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
@@ -216,6 +216,7 @@ class Deploy:
 
                 # 1. 从真实机器人获取观察值 Obtain an observation from real robot
                 omega, eu_ang, pos_robot, vel_robot, tau_robot = self.get_obs(es)
+                # eu_ang[1] += 0.03
                 # print('r=%.4f p=%.4f y=%.4f' % (eu_ang[0], eu_ang[1], eu_ang[2], ))
                 #pos_robot = np.clip(pos_robot, self.cfg.env.joint_limit_min, self.cfg.env.joint_limit_max)  # 过滤掉超过极限的值
 
@@ -347,7 +348,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq5dof/5-15/policy_5-15_5dof_squat_1200.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq5dof/5-16/policy_5-16_5dof_squat_2w.pt'
 
 
     deploy = Deploy(DeployCfg(), args.load_model)
