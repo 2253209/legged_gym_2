@@ -1,0 +1,7 @@
+struct tau_mapping_lcmt
+{
+    float tau_est[4];
+    int64_t timestamp_us;
+    int64_t id;
+    int64_t robot_id;
+}
