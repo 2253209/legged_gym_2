@@ -5,7 +5,7 @@ import time
 import numpy as np
 from deploy.lcm_types.state_estimator_lcmt import state_estimator_lcmt
 from deploy.lcm_types.leg_control_data_lcmt import leg_control_data_lcmt
-from deploy.lcm_types.tau_mapping_lcmt import tau_mapping_lcmt
+
 
 @ staticmethod
 def filter_mean(buffer, value):
@@ -44,13 +44,6 @@ class StateEstimator:
         # self.omegaBody = filter_mean(self.buffer_omg, np.array(msg.omegaBody))
         self.omegaBody = np.array(msg.omegaBody)
         # print(f"update imudata {msg.id}")
-
-    def _tau_cb(self, channel, data):
-        # print("update state")
-        msg = tau_mapping_lcmt.decode(data)
-        self.tau_ankle = np.array(msg.tau_est)
-        # self.tau_mapping = filter_mean(self.buffer_tau, np.array(msg.tau_mapping))
-        # print(f"update tau_data {msg.id}")
 
     def _leg_cb(self, channel, data):
         # print("update leg")

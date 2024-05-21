@@ -1,8 +1,0 @@
-struct key_command_lcmt
-{
-    int16_t use_tau_mapping_rl;
-    int16_t use_ankle_motor_kd_rl;
-    int64_t timestamp_us;
-    int64_t id;
-    int64_t robot_id;
-}

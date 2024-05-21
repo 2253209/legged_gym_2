@@ -13,8 +13,6 @@ import lcm
 
 from deploy.lcm_types.pd_targets_lcmt import pd_targets_lcmt
 from deploy.utils.state_estimator import StateEstimator
-from deploy.lcm_types.key_command_lcmt import key_command_lcmt
-from deploy.lcm_types.tau_mapping_lcmt import tau_mapping_lcmt
 
 from deploy.utils.act_gen import ActionGenerator
 from deploy.utils.ankle_joint_converter import convert_pv_joint_2_ori, convert_p_ori_2_joint
@@ -179,7 +177,7 @@ class Deploy:
         action_0 = np.copy(action_robot)
         action_1 = np.copy(action_robot)
         # 从神经网络获取和发送给网络的值
-        action_net = np.zeros(10, dtype=np.float32)
+        action_net = np.zeros(self.cfg.env.num_actions, dtype=np.float32)
         pos_net = np.copy(action_net)
         vel_net = np.copy(action_net)
         phase = np.zeros((1, 1), dtype=np.float32)
@@ -273,9 +271,9 @@ class Deploy:
                     key_comm.keyboardEvent = False
 
                 if key_comm.stepCalibrate:
-                    control_mode = 0
+                    control_mode = 0  # 关节处于位置映射模式，所有的下发pos都应该是电机指令 5-21
                     self.cfg.env.action_scale = self.cfg.env.action_scale_min
-                    action_robot = np.array(self.cfg.env.default_joint_pos)
+                    action_robot = np.array(self.cfg.env.default_joint_pos)  # pos是电机指令 5-21
 
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
@@ -293,7 +291,7 @@ class Deploy:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
                     # if key_comm.timestep > 500:
                     #     step_freq = key_comm.timestep // 500 + self.cfg.env.step_freq
-                    control_mode = 1
+                    control_mode = 1  # 关节处于力矩映射模式，所有下发pos都应该是虚拟关节指令，不能是电机指令。  5-21
 
                     scale_1 = 0.3
                     scale_2 = 2 * scale_1
