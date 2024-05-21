@@ -113,7 +113,7 @@ class Deploy:
         self.obs_net = np.zeros((1, cfg.env.num_obs_net), dtype=np.float32)
         self.obs_robot = np.zeros((1, cfg.env.num_obs_robot), dtype=np.float32)
 
-    def publish_action(self, action, kp, kd):
+    def publish_action(self, action, kp, kd, control_mode):
         command_for_robot = pd_targets_lcmt()
         command_for_robot.q_des = action
         command_for_robot.qd_des = np.zeros(self.cfg.env.num_actions)
@@ -122,20 +122,10 @@ class Deploy:
         command_for_robot.tau_ff = np.zeros(self.cfg.env.num_actions)
         command_for_robot.se_contactState = np.zeros(4)
         command_for_robot.timestamp_us = int(time.time() * 10 ** 6)
-        command_for_robot.id = 0
+        command_for_robot.id = control_mode
 
         # 由lcm将神经网络输出的action传入c++ sdk
         self.lc.publish("robot_command", command_for_robot.encode())
-
-    def publish_key_command(self, action, kp, kd):
-        key_command = key_command_lcmt()
-        key_command.use_tau_mapping_rl = action
-        key_command.use_tau_mapping_rl = np.zeros(self.cfg.env.num_actions)
-        key_command.timestamp_us = int(time.time() * 10 ** 6)
-        key_command.id = 0
-
-        # 由lcm将神经网络输出的action传入c++ sdk
-        self.lc.publish("key_command", key_command.encode())
 
     def get_obs(self, es):
         """
@@ -210,6 +200,7 @@ class Deploy:
         key_comm = KeyCommand()
         key_comm.start()
         count_total = 0
+        control_mode = 0  # 力矩映射
         count_max_merge = 30
         step_freq = self.cfg.env.step_freq
 
@@ -282,8 +273,9 @@ class Deploy:
                     key_comm.keyboardEvent = False
 
                 if key_comm.stepCalibrate:
+                    control_mode = 0
                     self.cfg.env.action_scale = self.cfg.env.action_scale_min
-                    action_robot = np.array(self.cfg.env.default_dof_pos)
+                    action_robot = np.array(self.cfg.env.default_joint_pos)
 
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
@@ -291,7 +283,7 @@ class Deploy:
                         action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
                                            + action_robot[:] / count_max_merge * key_comm.timestep)
 
-                    self.publish_action(action_robot, kp, kd)
+                    self.publish_action(action_robot, kp, kd, control_mode)
                     # pass
                 elif key_comm.stepTest:
                     pass
@@ -301,6 +293,7 @@ class Deploy:
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
                     # if key_comm.timestep > 500:
                     #     step_freq = key_comm.timestep // 500 + self.cfg.env.step_freq
+                    control_mode = 1
 
                     scale_1 = 0.3
                     scale_2 = 2 * scale_1
@@ -341,7 +334,7 @@ class Deploy:
                     tau_cmd = self.pd_control(action_robot, pos_robot, kp, np.zeros(12), vel_robot, kd)
                     # print("Joint torque command is: ", tau_cmd)
                     # print(action_robot)
-                    self.publish_action(action_robot, kp, kd)
+                    self.publish_action(action_robot, kp, kd, control_mode)
                     if key_comm.timestep > self.cfg.env.switch_action and self.cfg.env.action_scale < self.cfg.env.action_scale_max:
                         self.cfg.env.action_scale += 0.00001*5
                         print("Interpolate action scale", self.cfg.env.action_scale)

@@ -35,7 +35,6 @@ class StateEstimator:
 
         self.state_subscription = self.lc.subscribe("state_estimator", self._state_cb)
         self.leg_subscription = self.lc.subscribe("leg_control_data_RL", self._leg_cb)
-        self.tau_subscription = self.lc.subscribe("tau_mapping", self._tau_cb)
         self.running = True
 
     def _state_cb(self, channel, data):
@@ -62,9 +61,8 @@ class StateEstimator:
         self.joint_pos = np.array(msg.q)
         self.joint_vel = np.array(msg.qd)
         self.joint_tau = np.array(msg.tau_est)
+        self.tau_ankle = np.array(msg.p[:4])
         # print(f"update legdata {msg.id}")
-
-
 
     def poll(self, cb=None):
         t = time.time()
