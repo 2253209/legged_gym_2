@@ -241,7 +241,7 @@ def get_title_tau_mapping_5dof():
     label = 'No,Time,'
     title = ''
     title += f'{label}'
-    for k in range(127):
+    for k in range(93):
         if k == 0:
             label = 'sin'
             i = 0
@@ -255,37 +255,74 @@ def get_title_tau_mapping_5dof():
             label = 'eul'
             i = 0
         elif k == 11:
-            label = 'n_pos'
+            label = 'joint_pos'
             i = 0
         elif k == 21:
-            label = 'n_vel'
+            label = 'joint_vel'
             i = 0
         elif k == 31:
-            label = 'n_act'
+            label = 'joint_action'
             i = 0
         elif k == 41:
-            label = 'r_pos'
+            label = 'motor_pos'
             i = 0
         elif k == 53:
-            label = 'r_vel'
+            label = 'motor_vel'
             i = 0
         elif k == 65:
-            label = 'r_act'
+            label = 'motor_action'
             i = 0
         elif k == 77:
-            label = 'uf_act'
+            label = 'motor_tau'
             i = 0
         elif k == 89:
-            label = 'tau_joint_state'
+            label = 'tau_ankle_cmd'
             i = 0
-        elif k == 101:
-            label = 'tau_joint_cmd'
+        title += f'{label}_{i},'
+        i += 1
+    return title
+
+def get_title_tau_mapping_6dof():
+    i = 0
+    label = 'No,Time,'
+    title = ''
+    title += f'{label}'
+    for k in range(99):
+        if k == 0:
+            label = 'sin'
             i = 0
-        elif k == 113:
-            label = 'ankle_joint_pos_cmd'
+        elif k == 2:
+            label = 'cmd'
             i = 0
-        elif k == 117:
-            label = 'ankle_joint_pos'
+        elif k == 5:
+            label = 'omg'
+            i = 0
+        elif k == 8:
+            label = 'eul'
+            i = 0
+        elif k == 11:
+            label = 'joint_pos'
+            i = 0
+        elif k == 23:
+            label = 'joint_vel'
+            i = 0
+        elif k == 35:
+            label = 'joint_action'
+            i = 0
+        elif k == 47:
+            label = 'motor_pos'
+            i = 0
+        elif k == 59:
+            label = 'motor_vel'
+            i = 0
+        elif k == 71:
+            label = 'motor_action'
+            i = 0
+        elif k == 83:
+            label = 'motor_tau'
+            i = 0
+        elif k == 95:
+            label = 'tau_ankle_cmd'
             i = 0
         title += f'{label}_{i},'
         i += 1

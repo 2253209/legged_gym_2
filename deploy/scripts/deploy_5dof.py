@@ -51,7 +51,7 @@ class DeployCfg:
         # dt = 0.01
         dt = 0.01
         # step_freq = 1.  # Hz
-        step_freq = 1.5  # Hz
+        step_freq = 0.2  # Hz
 
         num_actions = 12
         num_obs_net = 41  # 2+3+3+3+12+12+12
@@ -93,8 +93,10 @@ class DeployCfg:
         dyaw = 0.0  # 0.05
 
     class robot_config:
-        kps = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
-        kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
+        # kps = np.array([200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 100, 100], dtype=np.double)
+        # kds = np.array([10, 10, 10, 10, 2, 2, 10, 10, 10, 10, 2, 2], dtype=np.double)
+        kps = np.array([160, 160, 160, 160, 36, 36, 160, 160, 160, 160, 36, 36], dtype=np.double)
+        kds = np.array([10, 10, 10, 10, 4, 4, 10, 10, 10, 10, 4, 4], dtype=np.double)
 
         kps_stand = np.array([200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200], dtype=np.double)
         kds_stand = np.array([10, 10, 10, 10, 4, 4, 10, 10, 10, 10, 4, 4], dtype=np.double)
@@ -247,12 +249,13 @@ class Deploy:
                 # phase[0, 0] += 0.1
                 mask_right = (np.floor(phase) + 1) % 2
                 mask_left = np.floor(phase) % 2
-                cos_values = (1 - np.cos(2 * np.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
-                cos_pos[0, 0] = cos_values * mask_right
-                cos_pos[0, 1] = cos_values * mask_left
+                # cos_values = (1 - np.cos(2 * np.pi * phase)) / 2  # 得到一条从0开始增加，频率为step_freq，振幅0～1的曲线，接地比较平滑
+                cos_values = np.sin(2 * np.pi * phase) / 2
+                cos_pos[0, 0] = cos_values# * mask_right
+                cos_pos[0, 1] = cos_values# * mask_left
 
                 # 3.1 组合给神经网络的OBS, 其中action_net是上一帧神经网络生成的动作.其他值都经过缩放,P值还减去了默认姿势
-                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net)
+                self.combine_obs_net(cos_pos, omega, eu_ang, pos_net, vel_net, action_net * self.cfg.env.action_scale)
 
                 # 3.2 组合从真机得到的OBS, 其中action_real是上一帧的关节目标位置,p和v都是原始的.
                 self.combine_obs_real(pos_robot, vel_robot, action_robot, tau_robot, tau_cmd)
@@ -272,7 +275,7 @@ class Deploy:
                     kp[:] = self.cfg.robot_config.kps_stand[:]
                     kd[:] = self.cfg.robot_config.kds_stand[:]
                     if key_comm.timestep < count_max_merge:
-                        action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                        action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
                                            + action_robot[:] / count_max_merge * key_comm.timestep)
 
                     self.publish_action(action_robot, kp, kd)
@@ -284,15 +287,15 @@ class Deploy:
                     # 这里可能有问题
                     # 当状态是“神经网络模式”时：使用神经网络输出动作。
                     action_net = self.policy(torch.tensor(self.obs_net))[0].detach().numpy()
-                    action_0[0:5] = action_net[0:5]
-                    action_0[5] = -action_net[4]
-                    action_0[6:10] = action_net[5:9]
-                    action_0[11] = action_net[9]
-                    action_0[10] = -action_net[9]
+                    action_0 = action_net.copy()
+                    action_0 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
+                    action_0 = action_0 * self.cfg.env.action_scale + self.cfg.env.default_dof_pos
+                    action_1[0:5] = action_0[0:5]
+                    action_1[5] = -action_0[4]
+                    action_1[6:10] = action_0[5:9]
+                    action_1[11] = action_0[9]
+                    action_1[10] = -action_0[9]
 
-                    # 裁剪
-                    action_1 = np.clip(action_0, -self.cfg.normalization.clip_actions, self.cfg.normalization.clip_actions)
-                    action_1 = action_1 * self.cfg.env.action_scale + self.cfg.env.default_joint_pos
 
                     kp[:] = self.cfg.robot_config.kps[:]
                     kd[:] = self.cfg.robot_config.kds[:]
@@ -304,7 +307,7 @@ class Deploy:
 
                     # 插值
                     if key_comm.timestep < count_max_merge:
-                        action_robot[:] = (pos_robot[:] / count_max_merge * (count_max_merge - key_comm.timestep)
+                        action_robot[:] = (pos_0[:] / count_max_merge * (count_max_merge - key_comm.timestep)
                                            + action_robot[:] / count_max_merge * key_comm.timestep)
 
                     tau_cmd = self.pd_control(action_robot, pos_robot, kp, np.zeros(12), vel_robot, kd)
@@ -343,7 +346,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.load_model:
-        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq10/exported/policies/policy_v2.pt'
+        args.load_model = f'{LEGGED_GYM_ROOT_DIR}/logs/zq12/exported/policies/policy_5-16_5dof_squat_2w.pt'
 
     deploy = Deploy(DeployCfg(), args.load_model)
     deploy.run_robot()

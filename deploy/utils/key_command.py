@@ -50,7 +50,7 @@ class KeyCommand:
             self.stepCalibrate = False
             # self.stepTest = False
             self.stepNet = False
-            print('!!!!!  挂起动腿模式 ！')
+            print('!!!!!  神经网络位控模式 ！')
         elif key == Key.right:  # str(key) == "'3'":
             self.timestep = 0
             print("net ", self.timestep)
@@ -58,7 +58,7 @@ class KeyCommand:
             self.stepCalibrate = False
             self.stepTest = False
             # self.stepNet = False
-            print('!!!!!  神经网络模式 ！')
+            print('!!!!!  神经网络力控模式 ！')
         else:
             print(f'key {key} is pressed, 停止监听按键.')
             self.stop()
